@@ -1,0 +1,11 @@
+Colocando aqui pq eu esqueço -> /backend
+Rodar o projeto: 
+npm run dev
+
+Migração:
+npx prisma migrate dev --name "name"
+
+
+Docker: pra rodar o projeto todo
+docker-compose up 
+
