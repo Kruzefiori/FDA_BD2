@@ -6,15 +6,19 @@ services:
     container_name: backend
     ports:
       - "3000:3000"
-    volumes:
-      - .:/usr/src/server
     environment:
       - DATABASE_URL=postgresql://unifei:unifei@db:5432/FDA_database
     depends_on:
       - db
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
+          
   db:
     image: postgres:13
     container_name: db
@@ -28,6 +32,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
 networks:
   app-network:
