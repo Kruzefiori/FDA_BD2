@@ -25,6 +25,8 @@ model User {
   name  String
   email String @unique
   password String
+  companyName String
+  company Company @relation(fields: [companyName], references: [name])
   role  String
 }
 
@@ -55,7 +57,6 @@ model Shortages {
 
 model Strength {
   id           Int            @id @default(autoincrement())
-  drugId       Int
   strength     String         @unique
   strengthDrug strengthDrug[]
 }
@@ -64,6 +65,7 @@ model Company {
   name      String @id
   drugCount Int    @default(0)
   drugs     Drug[]
+  users     User[]
 }
 
 model adverseReaction {
