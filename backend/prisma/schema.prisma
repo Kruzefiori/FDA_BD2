@@ -5,8 +5,14 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider        = "prisma-client-js"
- // binaryTargets   = ["debian-openssl-3.0.x", "rhel-openssl-3.0.x"]  // Adicione a plataforma correta
+  provider = "prisma-client-js"
+  // binaryTargets   = ["debian-openssl-3.0.x", "rhel-openssl-3.0.x"]  // Adicione a plataforma correta
+}
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./erd.pdf"
+  theme = "forest"
+  disableEmoji = true
 }
 
 datasource db {
@@ -18,9 +24,98 @@ model User {
   id    Int    @id @default(autoincrement())
   name  String
   email String @unique
+  password String
+  role  String
 }
 
 model Drug {
-  id         Int     @id @default(autoincrement())
+  id               Int                   @id @default(autoincrement())
+  name             String                @unique
+  dosageform       String
+  companyName      String
+  company          Company               @relation(fields: [companyName], references: [name])
+  adverseReactions adverseReactionDrug[]
+  reportDrug       reportDrug[]
+  drugStrength     strengthDrug[]
+  shortages        Shortages[]
+}
+
+model Shortages {
+  id               Int      @id @default(autoincrement())
+  drugName         String
+  description      String
+  startDate        DateTime
+  endDate          DateTime
+  discontinuedDate DateTime
+  dosageform       String
+  strength         String
+  presentation     String
+  Drug Drug @relation(fields: [drugName], references: [name])
+}
+
+model Strength {
+  id           Int            @id @default(autoincrement())
+  drugId       Int
+  strength     String         @unique
+  strengthDrug strengthDrug[]
+}
+
+model Company {
+  name      String @id
+  drugCount Int    @default(0)
+  drugs     Drug[]
+}
+
+model adverseReaction {
+  id          Int                     @id @default(autoincrement())
   name        String
+  description String
+  drugs       adverseReactionDrug[]
+  reportDrugs adverseReactionReport[]
+}
+
+model ReportAdverse {
+  id                Int                     @id
+  drugId            Int
+  adverseReactionId Int
+  description       String
+  occurCountry      String
+  transactionDate   DateTime
+  drug              reportDrug[]
+  adverseReaction   adverseReactionReport[]
+  patientAge        Int
+  patientGender     String
+}
+
+// Below are the N:N relationships
+model adverseReactionDrug {
+  id                Int             @id @default(autoincrement())
+  drugId            Int
+  adverseReactionId Int
+  Drug              Drug            @relation(fields: [drugId], references: [id])
+  AdverseReaction   adverseReaction @relation(fields: [adverseReactionId], references: [id])
+}
+
+model adverseReactionReport {
+  id                Int             @id @default(autoincrement())
+  ReportAdverseid   Int
+  adverseReactionId Int
+  AdverseReaction   adverseReaction @relation(fields: [adverseReactionId], references: [id])
+  ReportAdverse     ReportAdverse   @relation(fields: [ReportAdverseid], references: [id])
+}
+
+model reportDrug {
+  id              Int           @id @default(autoincrement())
+  ReportAdverseid Int
+  drugId          Int
+  Drug            Drug          @relation(fields: [drugId], references: [id])
+  AdverseReaction ReportAdverse @relation(fields: [ReportAdverseid], references: [id])
+}
+
+model strengthDrug {
+  id           Int      @id @default(autoincrement())
+  drugId       Int
+  strength     String
+  Drug         Drug     @relation(fields: [drugId], references: [id])
+  DrugStrength Strength @relation(fields: [strength], references: [strength])
 }
