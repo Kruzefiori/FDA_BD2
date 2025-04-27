@@ -8,10 +8,11 @@ generator client {
   provider = "prisma-client-js"
   // binaryTargets   = ["debian-openssl-3.0.x", "rhel-openssl-3.0.x"]  // Adicione a plataforma correta
 }
+
 generator erd {
-  provider = "prisma-erd-generator"
-  output   = "./erd.pdf"
-  theme = "forest"
+  provider     = "prisma-erd-generator"
+  output       = "./erd.pdf"
+  theme        = "forest"
   disableEmoji = true
 }
 
@@ -20,45 +21,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
-  password String
+  id          Int     @id @default(autoincrement())
+  name        String
+  email       String  @unique
+  password    String
   companyName String
-  company Company @relation(fields: [companyName], references: [name])
-  role  String
+  company     Company @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  role        Role    @default(USER)
 }
 
 model Drug {
-  id               Int                   @id @default(autoincrement())
-  name             String                @unique
-  dosageform       String
+  name             String
+  strength         String
+  dosageForm       String
+  route            String
   companyName      String
-  company          Company               @relation(fields: [companyName], references: [name])
-  adverseReactions adverseReactionDrug[]
-  reportDrug       reportDrug[]
-  drugStrength     strengthDrug[]
+  company          Company               @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  adverseReactions RelAdverseReactionXDrug[]
+  reportDrug       RelReportXDrug[]
   shortages        Shortages[]
+
+  @@id([name, strength])
+  @@unique([name])
 }
 
 model Shortages {
   id               Int      @id @default(autoincrement())
   drugName         String
+  drugStrength     String
+  dosageForm       String
   description      String
   startDate        DateTime
   endDate          DateTime
   discontinuedDate DateTime
-  dosageform       String
-  strength         String
   presentation     String
-  Drug Drug @relation(fields: [drugName], references: [name])
-}
-
-model Strength {
-  id           Int            @id @default(autoincrement())
-  strength     String         @unique
-  strengthDrug strengthDrug[]
+  Drug             Drug     @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
 }
 
 model Company {
@@ -68,56 +71,45 @@ model Company {
   users     User[]
 }
 
-model adverseReaction {
-  id          Int                     @id @default(autoincrement())
-  name        String
-  description String
-  drugs       adverseReactionDrug[]
-  reportDrugs adverseReactionReport[]
+model AdverseReaction {
+  name        String                   @id
+  drugs       RelAdverseReactionXDrug[]
+  reportDrugs RelAdverseReactionXReport[]
 }
 
-model ReportAdverse {
-  id                Int                     @id
-  drugId            Int
-  adverseReactionId Int
-  description       String
+model Report {
+  id                Int                     @id @default(autoincrement())
   occurCountry      String
-  transactionDate   DateTime
-  drug              reportDrug[]
-  adverseReaction   adverseReactionReport[]
-  patientAge        Int
-  patientGender     String
+  transmissionDate  DateTime
+  patientAge        Int?
+  patientGender     String?
+  patientWeight     Int?
+  drugs             RelReportXDrug[]
+  adverseReactions  RelAdverseReactionXReport[]
 }
 
-// Below are the N:N relationships
-model adverseReactionDrug {
-  id                Int             @id @default(autoincrement())
-  drugId            Int
-  adverseReactionId Int
-  Drug              Drug            @relation(fields: [drugId], references: [id])
-  AdverseReaction   adverseReaction @relation(fields: [adverseReactionId], references: [id])
+model RelAdverseReactionXDrug {
+  id               Int              @id @default(autoincrement())
+  drugName         String
+  drugStrength     String
+  adverseReaction  String
+  Drug             Drug             @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
+  AdverseReaction  AdverseReaction  @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
-model adverseReactionReport {
-  id                Int             @id @default(autoincrement())
-  ReportAdverseid   Int
-  adverseReactionId Int
-  AdverseReaction   adverseReaction @relation(fields: [adverseReactionId], references: [id])
-  ReportAdverse     ReportAdverse   @relation(fields: [ReportAdverseid], references: [id])
+model RelAdverseReactionXReport {
+  id               Int              @id @default(autoincrement())
+  reportId         Int
+  adverseReaction  String
+  Report           Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  AdverseReaction  AdverseReaction  @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
-model reportDrug {
-  id              Int           @id @default(autoincrement())
-  ReportAdverseid Int
-  drugId          Int
-  Drug            Drug          @relation(fields: [drugId], references: [id])
-  AdverseReaction ReportAdverse @relation(fields: [ReportAdverseid], references: [id])
-}
-
-model strengthDrug {
-  id           Int      @id @default(autoincrement())
-  drugId       Int
-  strength     String
-  Drug         Drug     @relation(fields: [drugId], references: [id])
-  DrugStrength Strength @relation(fields: [strength], references: [strength])
+model RelReportXDrug {
+  id              Int     @id @default(autoincrement())
+  reportId        Int
+  drugName        String
+  drugStrength    String
+  Report          Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  Drug            Drug    @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
 }
