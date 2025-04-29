@@ -25,9 +25,9 @@ export const getUser = async (req: Request, res: Response) => {
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const { name, email } = req.body;
+  const { name, email , password, companyName} = req.body;
   try {
-    const newUser = await userService.createUser(name, email);
+    const newUser = await userService.createUser(name, email ,password, companyName);
     res.status(201).json(newUser);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao criar usuário' });

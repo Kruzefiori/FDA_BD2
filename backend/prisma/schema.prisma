@@ -37,31 +37,27 @@ model User {
 }
 
 model Drug {
-  name             String
-  strength         String
-  dosageForm       String
-  route            String
-  companyName      String
-  company          Company               @relation(fields: [companyName], references: [name], onDelete: Cascade)
-  adverseReactions RelAdverseReactionXDrug[]
-  reportDrug       RelReportXDrug[]
-  shortages        Shortages[]
-
-  @@id([name, strength])
-  @@unique([name])
+  id                Int                        @id @default(autoincrement())
+  name              String
+  strength          String
+  dosageForm        String
+  route             String
+  companyName       String
+  company           Company                    @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  adverseReactions  RelAdverseReactionXDrug[]
+  reportDrug        RelReportXDrug[]
+  shortages         Shortages[]
+  activeIngredients RelActiveIngredientXDrug[]
 }
 
 model Shortages {
-  id               Int      @id @default(autoincrement())
-  drugName         String
-  drugStrength     String
-  dosageForm       String
-  description      String
-  startDate        DateTime
-  endDate          DateTime
-  discontinuedDate DateTime
-  presentation     String
-  Drug             Drug     @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
+  id           Int      @id @default(autoincrement())
+  drugId       Int
+  dosageForm   String
+  description  String
+  date         DateTime
+  presentation String
+  Drug         Drug     @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
 model Company {
@@ -72,44 +68,59 @@ model Company {
 }
 
 model AdverseReaction {
-  name        String                   @id
+  name        String                      @id
   drugs       RelAdverseReactionXDrug[]
   reportDrugs RelAdverseReactionXReport[]
 }
 
 model Report {
-  id                Int                     @id @default(autoincrement())
-  occurCountry      String
-  transmissionDate  DateTime
-  patientAge        Int?
-  patientGender     String?
-  patientWeight     Int?
-  drugs             RelReportXDrug[]
-  adverseReactions  RelAdverseReactionXReport[]
+  id               Int                         @id @default(autoincrement())
+  occurCountry     String
+  transmissionDate DateTime
+  patientAge       Int?
+  patientGender    String?
+  patientWeight    Int?
+  drugs            RelReportXDrug[]
+  adverseReactions RelAdverseReactionXReport[]
+}
+
+model ActiveIngredient {
+  name     String
+  strength String
+  drugs    RelActiveIngredientXDrug[]
+
+  @@id([name, strength])
+}
+
+model RelActiveIngredientXDrug {
+  id                       Int              @id @default(autoincrement())
+  activeIngredientName     String
+  activeIngredientStrength String
+  drugId                   Int
+  ActiveIngredient         ActiveIngredient @relation(fields: [activeIngredientName, activeIngredientStrength], references: [name, strength], onDelete: Cascade)
+  Drug                     Drug             @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
 model RelAdverseReactionXDrug {
-  id               Int              @id @default(autoincrement())
-  drugName         String
-  drugStrength     String
-  adverseReaction  String
-  Drug             Drug             @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
-  AdverseReaction  AdverseReaction  @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
+  id              Int             @id @default(autoincrement())
+  drugId          Int
+  adverseReaction String
+  Drug            Drug            @relation(fields: [drugId], references: [id], onDelete: Cascade)
+  AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
 model RelAdverseReactionXReport {
-  id               Int              @id @default(autoincrement())
-  reportId         Int
-  adverseReaction  String
-  Report           Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  AdverseReaction  AdverseReaction  @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
+  id              Int             @id @default(autoincrement())
+  reportId        Int
+  adverseReaction String
+  Report          Report          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
 model RelReportXDrug {
-  id              Int     @id @default(autoincrement())
-  reportId        Int
-  drugName        String
-  drugStrength    String
-  Report          Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  Drug            Drug    @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
+  id       Int    @id @default(autoincrement())
+  reportId Int
+  drugId   Int
+  Report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  Drug     Drug   @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
