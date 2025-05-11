@@ -14,7 +14,7 @@ export const getUserById = async (id: number) => {
 export const createUser = async (name: string, email: string , password: string , companyName: string) => {
   console.log('Creating user with name:', name, 'and email:', email);//ok
   return await prisma.user.create({
-    data: { name, email , password , companyName},
+    data: { name, email , password },
   });
 };
 
