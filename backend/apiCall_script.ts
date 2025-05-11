@@ -54,31 +54,36 @@ const cadastraMedicamentos = async (medicamentos: any[], empresa: string) => {
     }
 
     const { products } = medicamento;
-    const { active_ingredients = [], dosage_form , route  } = products || {};
+    const { active_ingredients, dosage_form, route, brand_name } = products[0];
 
     console.log("products: ", products);
 
-    // await prisma.drug.create({
-    //   data: {
-    //     name: active_ingredients?.brand_name || "Unknown",
-    //     strength: active_ingredients?.strength || "Unknown",
-    //     dosageForm: dosage_form || "Unknown",
-    //     route: route || "Unknown",
-    //     companyName: empresa,
-    //   },
-    // });
+    await prisma.drug.create({
+      data: {
+        name: brand_name,
+        strength: active_ingredients[0]?.strength,
+        dosageForm: dosage_form ,
+        route: route ,
+        //companyName: empresa,
+        company: {
+          connectOrCreate: {
+            where: { name: empresa },
+            create: { name: empresa },
+          },
+        },
+      },
+    });
   }
 };
 
 
+const urlListaEfeitosAdversos = `https://api.fda.gov/drug/event.json?count=patient.reaction.reactionmeddrapt.exact`
 
 const urlListaEmpresas = "https://api.fda.gov/drug/drugsfda.json?count=sponsor_name"
 
-const urlListaMedicamentos = `https://api.fda.gov/drug/drugsfda.json?limit=50&search=sponsor_name:"REPLACE"`
+const urlListaMedicamentos = `https://api.fda.gov/drug/drugsfda.json?limit=100&search=sponsor_name:"REPLACE"`
 
-const urlListaShortages = `https://api.fda.gov/drug/shortages.json?skip=1&search=openfda.brand_name:"REPLACE"`
-
-const urlListaEfeitosAdversos = `https://api.fda.gov/drug/event.json?count=patient.reaction.reactionmeddrapt.exact`
+const urlListaShortages = `https://api.fda.gov/drug/shortages.json?&search=openfda.brand_name:"REPLACE"`
 
 const urlReportsPorRemedio = `https://api.fda.gov/drug/event.json?search=patient.drug.medicinalproduct:"REPLACE"`
 
@@ -103,6 +108,7 @@ interface ApiResponse {
     };
   };
 }
+
 
 const fetchData = async (url: string): Promise<any> => {
   let allResults: any[] = [];
@@ -206,13 +212,12 @@ const listaReportsPorRemedio = async (remedio: string): Promise<any> => {
 const main = async () => {
   try {
     const empresasData = await listaEmpresas();
-
-    //cadastraEmpresas(empresasData);
+    cadastraEmpresas(empresasData);
     const efeitosAdversos = await listaEfeitosAdversos();
-    //cadastraEfeitosAdversos(efeitosAdversos);
+    cadastraEfeitosAdversos(efeitosAdversos);
     empresasData.forEach(async (empresa: any) => {
       const medicamentos = await listaMedicamentosPorEmpresa(empresa.term);
-      console.log("-------------------------------------------------------------------------")
+      console.log(medicamentos)
       cadastraMedicamentos(medicamentos , empresa.term);
       medicamentos.forEach(async (medicamento: any) => {
         //const listaShortages = await listaShortagesPorMedicamento(medicamento?.products?.brand_name);

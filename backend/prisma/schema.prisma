@@ -39,7 +39,7 @@ model Drug {
   name              String
   strength          String
   dosageForm        String
-  route             String
+  route             String?
   companyName       String
   company           Company                    @relation(fields: [companyName], references: [name], onDelete: Cascade)
   adverseReactions  RelAdverseReactionXDrug[]
