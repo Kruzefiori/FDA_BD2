@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  // binaryTargets   = ["debian-openssl-3.0.x", "rhel-openssl-3.0.x"]  // Adicione a plataforma correta
 }
 
 generator erd {
@@ -18,7 +17,7 @@ generator erd {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://unifei:unifei@localhost:5433/UNIFEI?schema=public"
 }
 
 enum Role {
@@ -27,41 +26,37 @@ enum Role {
 }
 
 model User {
-  id          Int     @id @default(autoincrement())
-  name        String
-  email       String  @unique
-  password    String
-  role        Role    @default(USER)
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+  role     Role   @default(USER)
 }
 
-model Drug {
-  id                Int                        @id @default(autoincrement())
-  name              String
-  strength          String
-  dosageForm        String
-  route             String
-  companyName       String
-  company           Company                    @relation(fields: [companyName], references: [name], onDelete: Cascade)
-  adverseReactions  RelAdverseReactionXDrug[]
-  reportDrug        RelReportXDrug[]
-  shortages         Shortages[]
-  activeIngredients RelActiveIngredientXDrug[]
+model DrugBase {
+  name       String
+  strength   String
+  dosageForm String
+  route      String
+  Drug       Drug[]
+
+  @@id([name, strength])
 }
 
 model Shortages {
-  id           Int      @id @default(autoincrement())
-  drugId       Int
-  dosageForm   String
-  description  String
-  date         DateTime
-  presentation String
-  Drug         Drug     @relation(fields: [drugId], references: [id], onDelete: Cascade)
+  id                 Int      @id @default(autoincrement())
+  drugId             Int
+  dosageForm         String
+  description        String?
+  initialPostingDate DateTime
+  presentation       String
+  Drug               Drug     @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
 model Company {
   name      String @id
   drugCount Int    @default(0)
-  drugs     Drug[]
+  Drugs     Drug[]
 }
 
 model AdverseReaction {
@@ -102,7 +97,7 @@ model RelAdverseReactionXDrug {
   id              Int             @id @default(autoincrement())
   drugId          Int
   adverseReaction String
-  Drug            Drug            @relation(fields: [drugId], references: [id], onDelete: Cascade)
+  Drug            Drug            @relation(fields: [id], references: [id], onDelete: Cascade)
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
@@ -120,4 +115,17 @@ model RelReportXDrug {
   drugId   Int
   Report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
   Drug     Drug   @relation(fields: [drugId], references: [id], onDelete: Cascade)
+}
+
+model Drug {
+  id                       Int                        @id @default(autoincrement())
+  companyName              String
+  drugName                 String
+  drugStrength             String
+  DrugBase                 DrugBase                   @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
+  Company                  Company                    @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  Shortages                Shortages[]
+  RelActiveIngredientXDrug RelActiveIngredientXDrug[]
+  RelAdverseReactionXDrug  RelAdverseReactionXDrug[]
+  RelReportXDrug           RelReportXDrug[]
 }
