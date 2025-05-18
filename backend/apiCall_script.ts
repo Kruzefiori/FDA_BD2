@@ -108,7 +108,6 @@ const cadastraEmpresas = async (empresas: Empresa[]) => {
         await prisma.company.create({
           data: {
             name: term,
-            drugCount: count,
           },
         });
         console.log(`Empresa ${term} cadastrada com sucesso.`);
@@ -150,91 +149,145 @@ const cadastraEfeitosAdversos = async (efeitosAdversos: Empresa[]) => {
   return promises;
 };
 
-const cadastraMedicamentos = async (medicamentos: Medicamento[], empresa: string) => {
+
+// model Shortages {
+//   id                 Int      @id @default(autoincrement())
+//   drugName           String
+//   drugStrength       String
+//   dosageForm         String
+//   description        String?
+//   initialPostingDate DateTime
+//   presentation       String
+//   Drug               Drug     @relation(fields: [drugName], references: [name], onDelete: Cascade)
+// }
+// const cadastraShortages = async (shortages: Shortage[]) => {
+//   for (const shortage of shortages) {
+    
+//     const { proprietary_name } = shortage;
+
+//     // Cria ou conecta o Drug (medicamento base)
+//     let drug = await prisma.drug.findUnique({
+//       where: { name: proprietary_name.charAt(0).toUpperCase() + proprietary_name.slice(1).toLowerCase() },
+//     });
+
+//     if (!drug) {
+//       drug = await prisma.drug.create({
+//         data: {
+//           name: proprietary_name.charAt(0).toUpperCase() + proprietary_name.slice(1).toLowerCase(),
+//         },
+//       });
+//       console.log(`Medicamento ${proprietary_name} cadastrado.`);
+//     }
+
+//     // Cria o Shortage
+//     await prisma.shortages.create({
+//       data: {
+//         drugName: proprietary_name.charAt(0).toUpperCase() + proprietary_name.slice(1).toLowerCase(),
+//         drugStrength: shortage.strength.join(", "),
+//         dosageForm: shortage.dosage_form,
+//         description: shortage.shortage_reason,
+//       }
+//     });
+//   }
+// };
+
+const cadastraMedicamentos = async (medicamentos: Medicamento[]) => {
   for (const medicamento of medicamentos) {
-    if (!medicamento.products) {
+    const { sponsor_name, products } = medicamento;
+
+    if (!products) {
       console.warn("Medicamento does not have 'products':", medicamento);
-      continue; // Skip this iteration if 'products' is undefined
+      continue;
     }
 
-    const { products } = medicamento;
-    const { active_ingredients, dosage_form, route, brand_name } = products[0];
+    for (const product of products) {
+      const { brand_name, dosage_form, route, product_number, marketing_status, reference_drug, active_ingredients } = product;
 
-    console.log("products: ", products);
+      if (!active_ingredients || active_ingredients.length === 0) {
+        console.warn("Product does not have 'active_ingredients':", product);
+        continue;
+      }
 
-    const existingDrug = await prisma.drug.findUnique({
-      where: {
-        name_strength: {
-          name: brand_name,
-          strength: active_ingredients[0]?.strength,
-        },
-      },
-    });
-    if (existingDrug) {
-      console.log(`Medicamento ${brand_name} já existe.`);
-      continue; // Skip this iteration if the drug already exists
-    }
-
-    try {
-      await prisma.drug.create({
-        data: {
-          name: brand_name,
-          strength: active_ingredients[0]?.strength,
-          dosageForm: dosage_form,
-          route: route,
-          companyName: empresa,
-        },
+      // Cria ou conecta o Drug (medicamento base)
+      let drug = await prisma.drug.findUnique({
+        where: { name: brand_name.charAt(0).toUpperCase() + brand_name.slice(1).toLowerCase() },
       });
-    }
-    catch (error) {
-      console.error("Erro ao cadastrar medicamento:", error);
-      continue; // Skip this iteration if there was an error
-    }
-  }
-};
 
-const cadastraShortages = async (shortages: Shortage[], drugName: string) => {
-  for (const shortage of shortages) {
-    try{
-      console.log("shortage: ", shortage);
-
-    await prisma.shortages.create({
-      data: {
-        presentation: shortage.presentation,
-        dosageForm: shortage.dosage_form,
-        description: shortage?.shortage_reason,
-        initialPostingDate: new Date(shortage.initial_posting_date),
-        Drug: {
-          connectOrCreate: {
-            where: {
-              name_strength: {
-                name: drugName,
-                strength: shortage.strength[0],
+      if (!drug) {
+        drug = await prisma.drug.create({
+          data: {
+            name: brand_name.charAt(0).toUpperCase() + brand_name.slice(1).toLowerCase(),
+            companies: {
+              connectOrCreate: {
+                where: { name: sponsor_name },
+                create: { name: sponsor_name },
               },
             },
-            create: {
-              name: drugName,
-              strength: shortage.strength[0],
-              dosageForm: shortage.dosage_form,
-              route: shortage.openfda.route[0],
-              company: {
-                connectOrCreate: {
-                  where: {
-                    name: shortage.company_name,  
-                  },
-                  create: {
-                    name: shortage.company_name,
-                    drugCount: 1,
-                  }
-                }
-              }
-            }
-          }
-        }
+          },
+        });
+        console.log(`Medicamento ${brand_name} cadastrado.`);
       }
-    });}catch (error) {
-      console.error("Erro ao cadastrar shortage:", shortage);
-      continue; // Skip this iteration if there was an error
+
+      // Verifica se o Product já existe para evitar duplicatas
+      const existingProduct = await prisma.product.findFirst({
+        where: {
+          drugId: drug.id,
+          productNumber: product_number,
+        },
+      });
+
+      if (existingProduct) {
+        console.log(`Produto ${brand_name} / ${product_number} já existe.`);
+        continue;
+      }
+
+      // Cria o Product e ingredientes ativos vinculados
+      const createdProduct = await prisma.product.create({
+        data: {
+          productNumber: product_number,
+          referenceDrug: reference_drug,
+          dosageForm: dosage_form,
+          route,
+          marketingStatus: marketing_status,
+          drug: {
+            connect: { id: drug.id },
+          },
+          activeIngredients: {
+            create: await Promise.all(
+              active_ingredients.map(async (ingredient) => {
+                const { name, strength } = ingredient;
+
+                const existingIngredient = await prisma.activeIngredient.findUnique({
+                  where: {
+                    name_strength: { name, strength },
+                  },
+                });
+
+                if (!existingIngredient) {
+                  await prisma.activeIngredient.create({
+                    data: {
+                      name,
+                      strength,
+                    },
+                  });
+                  console.log(`Ingrediente ativo ${name} criado.`);
+                }
+
+                return {
+                  ingredient: {
+                    connect: {
+                      name_strength: { name, strength },
+                    },
+                  },
+                  strength, // força registrada na ProductActiveIngredient (pode ser duplicada ou alternativa)
+                };
+              })
+            ),
+          },
+        },
+      });
+
+      console.log(`Produto ${createdProduct.productNumber} cadastrado com sucesso.`);
     }
   }
 };
@@ -243,11 +296,10 @@ const cadastraShortages = async (shortages: Shortage[], drugName: string) => {
 
 const urlListaEmpresas = "https://api.fda.gov/drug/drugsfda.json?count=sponsor_name"
 
-const urlListaMedicamentos = `https://api.fda.gov/drug/drugsfda.json?limit=50&search=sponsor_name:"REPLACE"`
+const urlListaMedicamentos = `https://api.fda.gov/drug/drugsfda.json?limit=1000`
 
-//const urlListaShortages = `https://api.fda.gov/drug/shortages.json?skip=1&search=openfda.brand_name:"REPLACE"`
 
-const urlListaShortages = new URL('https://api.fda.gov/drug/shortages.json')
+const urlListaShortages = 'https://api.fda.gov/drug/shortages.json?limit=1000'
 
 const urlListaEfeitosAdversos = `https://api.fda.gov/drug/event.json?count=patient.reaction.reactionmeddrapt.exact`
 
@@ -277,88 +329,82 @@ interface ApiResponse {
   };
 }
 
-const fetchData = async (url: string): Promise<any> => {
+const fetchData = async (initialUrl: string): Promise<any[]> => {
   let allResults: any[] = [];
-  let skip = 0;
-  let total = 0;
-  let apiKeyIndex = 0; // Índice para controlar qual API key está sendo usada
-  const maxRetries = 6; // Número máximo de tentativas
+  let nextUrl: string | null = initialUrl;
+  let apiKeyIndex = 0;
+  const maxRetries = 500;
 
-  do {
-    // Atualiza o parâmetro de paginação (skip) na URL
-    let finalUrl = new URL(url);
-    finalUrl.searchParams.set("skip", skip.toString());
-    finalUrl.searchParams.append("api_key", apiKeys[apiKeyIndex]);
-
+  while (nextUrl) {
     let response;
     let retries = 0;
+
+    // Adiciona a chave da API na URL
+    const urlObj = new URL(nextUrl);
+    urlObj.searchParams.set("api_key", apiKeys[apiKeyIndex]);
 
     while (retries < maxRetries) {
       try {
         const controller = new AbortController();
+        response = await fetch(urlObj.toString(), { signal: controller.signal });
 
-        response = await fetch(finalUrl.toString(), { signal: controller.signal });
-
-
-        if (response.ok) break; // Sai do loop se a resposta for bem-sucedida
+        if (response.ok) break;
 
         if (response.status === 429) {
-          console.warn(`Erro 429: Muitas requisições com a chave ${apiKeys[apiKeyIndex]}. Trocando para a próxima chave...`);
-          apiKeyIndex = (apiKeyIndex + 1) % apiKeys.length; // Passa para a próxima chave
-          await sleep(5000); // Espera 5 segundos antes de tentar novamente
+          console.warn(`Erro 429: Limite atingido com a chave ${apiKeys[apiKeyIndex]}. Trocando...`);
+          apiKeyIndex = (apiKeyIndex + 1) % apiKeys.length;
+          await sleep(5000);
         } else if (response.status === 404) {
-          console.warn(`Erro 404: Not found`);
-          await sleep(5000); // Espera 5 segundos antes de tentar novamente
-
+          console.warn("Erro 404: Não encontrado. Tentando novamente...");
+          await sleep(5000);
         } else {
           console.error(`Erro ${response.status}: ${response.statusText}`);
           console.error("Resposta da API:", await response.text());
-          console.error("URL da requisição:", finalUrl.toString());
+          console.error("URL da requisição:", urlObj.toString());
           throw new Error(`Erro na requisição: ${JSON.stringify(response)}`);
         }
       } catch (error: any) {
         if (error.code === 'ETIMEDOUT') {
           retries++;
-          console.warn(`Erro de timeout. Tentativa ${retries} de ${maxRetries}. Aguardando 20 segundos antes de tentar novamente...`);
-          await sleep(20000); // Espera 20 segundos antes de tentar novamente
+          console.warn(`Timeout. Tentativa ${retries}/${maxRetries}. Aguardando 20s...`);
+          await sleep(20000);
         } else {
           console.error("Erro na requisição:", JSON.stringify(error.message));
-          throw error; // Lança o erro se não for timeout
+          throw error;
         }
       }
     }
 
     if (retries === maxRetries) {
-      throw new Error(`Falha após ${maxRetries} tentativas. URL: ${finalUrl.toString()}`);
+      throw new Error(`Falha após ${maxRetries} tentativas. URL: ${urlObj.toString()}`);
     }
 
-    const data = await response!.json();
+    const data = await response!.json() as ApiResponse;
 
-    if ((data as ApiResponse).results?.length === 0) {
-      console.warn("API returned an empty response:", finalUrl.toString());
-      return [];
-    }
-
-    // Adiciona os resultados da página atual à lista de resultados
-    const typedData = data as ApiResponse; // Typecast 'data' to 'ApiResponse'
-    allResults = allResults.concat(typedData.results || []);
-
-    // Atualiza os valores de paginação com base no meta da resposta
-    total = typedData.meta?.results?.total || 0;
-    skip += typedData.meta?.results?.limit || 0;
-
-    // Adiciona um atraso antes da próxima iteração
-    await sleep(3000); // 3 segundos de atraso entre as chamadas
-
-    if (skip >= total) {
-      console.warn("Pagination exceeded total records. Stopping further requests.");
+    if (!data.results || data.results.length === 0) {
+      console.warn("API retornou resposta vazia:", urlObj.toString());
       break;
     }
 
-  } while (skip < total); // Continua enquanto ainda houver dados para buscar
+    allResults = allResults.concat(data.results);
+
+    // Extrai o Link header para rel="next"
+    const linkHeader = response?.headers?.get("Link");
+    console.log("Link header:", linkHeader);
+    if (linkHeader && linkHeader.includes('rel="next"')) {
+      const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      nextUrl = match ? match[1] : null;
+      console.log("Próxima URL:", nextUrl);
+    } else {
+      nextUrl = null;
+    }
+
+    await sleep(3000);
+  }
 
   return allResults;
 };
+
 
 const listaEmpresas = async (): Promise<any> => {
   return await fetchData(urlListaEmpresas);
@@ -368,14 +414,8 @@ const listaMedicamentosPorEmpresa = async (empresa: string): Promise<any> => {
   return await fetchData(urlListaMedicamentos.replace("REPLACE", empresa));
 }
 
-const listaShortagesPorMedicamento = async (medicamento: string) => {
-  if (!medicamento) {
-    console.log("listaShortagesPorMedicamento vazio, retornando lista vazia");
-    return []
-  }
-  const url = new URL(urlListaShortages);
-  url.searchParams.set("search", `openfda.brand_name:"${medicamento}"`);
-  return await fetchData(url.toString());
+const listaShortages = async () => {
+  return await fetchData(urlListaShortages);
 }
 const listaEfeitosAdversos = async (): Promise<any> => {
   return await fetchData(urlListaEfeitosAdversos);
@@ -391,6 +431,12 @@ const listaReportsPorRemedio = async (remedio: string): Promise<any> => {
   return await fetchData(urlReportsPorRemedio.replace("REPLACE", remedio));
 }
 
+const listaMedicamentos = async (): Promise<any> => {
+  return await fetchData(urlListaMedicamentos);
+}
+
+
+
 const main = async () => {
   try {
     const empresasData = await listaEmpresas();
@@ -399,30 +445,41 @@ const main = async () => {
     const efeitosAdversos = await listaEfeitosAdversos();
 
     const promises_efe = await cadastraEfeitosAdversos(efeitosAdversos);
+    
+    const medicamentosTodos = await listaMedicamentos();
+    
+    console.log("Medicamentos:", medicamentosTodos.length);
+    const promisesMedicamentos = await cadastraMedicamentos(medicamentosTodos);
+
+    const shortages = await listaShortages();
+
+    //const promisesShortages = await cadastraShortages(shortages);
 
     await Promise.all([...promises_emp, ...promises_efe]);
-
-    empresasData.forEach(async (empresa: any) => {
-      const medicamentos = await listaMedicamentosPorEmpresa(empresa.term);
-      cadastraMedicamentos(medicamentos, empresa.term);
-      medicamentos.forEach(async (medicamento: Medicamento) => {
-        console.log("Medicamento:", medicamento);
-        if (!medicamento.products) {
-          console.warn("Medicamento does not have 'products':", medicamento);
-          return; // Skip this iteration if 'products' is undefined
-        }
-        await sleep(3000); // Atraso de 3 segundos entre as requisições
-        const listaShortages = await listaShortagesPorMedicamento(medicamento?.products[0]?.brand_name);
-        cadastraShortages(listaShortages, medicamento.products[0].brand_name);
-        //const reportsRemedio = await listaReportsPorRemedio(medicamento?.products?.brand_name);
-        //console.log("Lista de reports por remedio:", listaReportsPorRemedio.results);
-        //cadastraReportsPorRemedio(listaReportsPorRemedio.results);
-        //console.log("Medicamento object:", medicamento);
-      });
-    });
+    // empresasData.forEach(async (empresa: any) => {
+    //   const medicamentos = await listaMedicamentosPorEmpresa(empresa.term);
+    //   cadastraMedicamentos(medicamentos, empresa.term);
+    //   medicamentos.forEach(async (medicamento: Medicamento) => {
+    //     console.log("Medicamento:", medicamento);
+    //     if (!medicamento.products) {
+    //       console.warn("Medicamento does not have 'products':", medicamento);
+    //       return; // Skip this iteration if 'products' is undefined
+    //     }
+    //     await sleep(3000); // Atraso de 3 segundos entre as requisições
+    //     const listaShortages = await listaShortagesPorMedicamento(medicamento?.products[0]?.brand_name);
+    //     console.log("Lista de shortages:", listaShortages);
+    //     //stop execution
+    //     cadastraShortages(listaShortages, medicamento.products[0].brand_name , empresa);
+    //     //const reportsRemedio = await listaReportsPorRemedio(medicamento?.products?.brand_name);
+    //     //console.log("Lista de reports por remedio:", listaReportsPorRemedio.results);
+    //     //cadastraReportsPorRemedio(listaReportsPorRemedio.results);
+    //     //console.log("Medicamento object:", medicamento);
+    //   });
+    // });
   } catch (error) {
     console.error("Erro - Main(): ", error);
   }
 };
 
 main();
+
