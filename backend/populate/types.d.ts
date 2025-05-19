@@ -1,8 +1,15 @@
+interface ApiResponseResults {
+  skip: number
+  limit: number
+  total: number
+}
+
 interface ApiResponseMeta {
-  results?: {
-    total: number;
-    limit: number;
-  };
+  disclaimer: string
+  terms: string
+  license: string
+  last_updated: string
+  results?: ApiResponseResults;
 }
 
 interface ApiResponse<T> {
@@ -19,6 +26,11 @@ interface FetchOptions {
 }
 
 // Api Response Types
+
+interface ActiveIngredient {
+  name: string
+  strength: string
+}
 
 interface Medicamento {
   submissions: Submission[]
@@ -123,6 +135,8 @@ interface TermOccurrence {
 interface LinkActiveIngredientToDrug {
   activeIngredient: ActiveIngredient;
   drug: Pick<Drug, "id">;
+  dosageForm?: string;
+  route?: string;
 }
 
 interface ProcessDrugActiveIngredients {
@@ -133,4 +147,12 @@ interface ProcessDrugActiveIngredients {
 interface ShortageRecord {
   drug: Pick<Drug, "drugName">;
   shortage: Shortage;
+}
+
+interface ApiResponseDrugsFDA {
+  submissions: Submission[]
+  application_number: string
+  sponsor_name: string
+  openfda: Openfda
+  products: Product[]
 }
