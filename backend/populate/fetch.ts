@@ -11,6 +11,7 @@ const apiKeys = [
 
 const fetchData = async <ResultType>(
   url: URL,
+  searchAfter: boolean = false
 ): Promise<ResultType[]> => {
   if (!apiKeys || apiKeys.length === 0) {
     throw new Error("Sem API KEY");
@@ -21,8 +22,8 @@ const fetchData = async <ResultType>(
     retryDelay: 5000,
     maxRetries: 3,
     requestDelay: 240,
-    maxRequestPerKey: 250
-  }
+    maxRequestPerKey: 250,
+  };
 
   const allResults: ResultType[] = [];
   let skip = 0;
@@ -31,7 +32,7 @@ const fetchData = async <ResultType>(
   let requestCount = 0;
 
   const sleep = (ms: number): Promise<void> =>
-    new Promise(resolve => setTimeout(resolve, ms));
+    new Promise((resolve) => setTimeout(resolve, ms));
 
   const getCurrentApiKey = (): string => apiKeys[apiKeyIndex];
 
@@ -41,19 +42,25 @@ const fetchData = async <ResultType>(
     return getCurrentApiKey();
   };
 
-  const buildUrl = (url: URL, skipValue: number, apiKey: string): URL => {
-    url.searchParams.set("skip", skipValue.toString());
-    url.searchParams.append("api_key", apiKey);
-    return url;
+  const buildUrl = (baseUrl: URL, skipValue: number, apiKey: string, searchAfter: boolean): URL => {
+    const newUrl = new URL(baseUrl.toString()); // clone to avoid mutation
+    if (!searchAfter) {
+      newUrl.searchParams.set("skip", skipValue.toString());
+    }
+    newUrl.searchParams.set("api_key", apiKey);
+    return newUrl;
   };
 
-  const makeRequest = async (requestUrl: URL): Promise<ApiResponse<ResultType>> => {
+  const makeRequest = async (requestUrl: URL): Promise<{
+    response: ApiResponse<ResultType>;
+    headers?: Headers;
+  }> => {
     let retries = 0;
 
     while (retries < options.maxRetries) {
       try {
         if (requestCount >= options.maxRequestPerKey) {
-          console.log(`Reached request limit (${options.maxRequestPerKey}) for key. Rotating API key.`);
+          console.log(`Reached request limit for current key. Rotating API key.`);
           rotateApiKey();
         }
 
@@ -66,12 +73,18 @@ const fetchData = async <ResultType>(
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          return await response.json() as ApiResponse<ResultType>;
+          return {
+            response: (await response.json()) as ApiResponse<ResultType>,
+            headers: response.headers,
+          };
         } else if (response.status === 404) {
-          console.log("Nada encontrado. Retornando array vazio.");
-          return { results: [] };
+          console.warn("No data found. Returning empty array.");
+          return {
+            response: { results: [] } as ApiResponse<ResultType>,
+            headers: response.headers,
+          };
         } else if (response.status === 429) {
-          console.warn(`Rate limit exceeded for key ${getCurrentApiKey()}. Rotating API key...`);
+          console.warn(`Rate limit hit. Rotating API key.`);
           rotateApiKey();
           requestUrl.searchParams.set("api_key", getCurrentApiKey());
           await sleep(options.retryDelay);
@@ -80,44 +93,65 @@ const fetchData = async <ResultType>(
         }
       } catch (error: any) {
         retries++;
-
-        if (error.name === 'AbortError') {
-          console.warn(`Request timeout. Attempt ${retries}/${options.maxRetries}`);
-        } else {
-          console.error(`Request failed: ${error.message}. Attempt ${retries}/${options.maxRetries}`);
-        }
+        console.error(`Request error (${error.message}). Retry ${retries}/${options.maxRetries}`);
 
         if (retries >= options.maxRetries) {
-          throw new Error(`Failed after ${options.maxRetries} attempts: ${error.message}`);
+          throw new Error(`Failed ${requestUrl} after ${options.maxRetries} attempts: ${error.message}`);
         }
 
         await sleep(options.retryDelay * Math.pow(2, retries - 1));
       }
     }
 
-    throw new Error("Request failed after maximum retries");
+    throw new Error("Exceeded max retries");
   };
 
   try {
-    do {
-      const requestUrl = buildUrl(url, skip, getCurrentApiKey());
+    if (!searchAfter) {
+      do {
+        const requestUrl = buildUrl(url, skip, getCurrentApiKey(), false);
 
-      console.log(`Fetching data with skip=${skip}, using API key index ${apiKeyIndex}`);
-      const data = await makeRequest(requestUrl);
+        console.log(`Fetching with skip=${skip}, API key index ${apiKeyIndex}`);
+        const requestData = await makeRequest(requestUrl);
 
-      if (data.results && data.results.length > 0) {
-        allResults.push(...data.results);
+        const data = requestData.response;
+        if (data.results?.length) {
+          allResults.push(...data.results);
+        }
+
+        total = data.meta?.results?.total || 0;
+        const limit = data.meta?.results?.limit || data.results.length;
+        skip += limit;
+
+        if (skip < total) {
+          await sleep(options.requestDelay);
+        }
+      } while (skip < total && total > 0);
+    } else {
+      let nextUrl: string | null = url.toString();
+
+      while (nextUrl) {
+        const requestUrl = buildUrl(new URL(nextUrl), 0, getCurrentApiKey(), true);
+
+        console.log(`Fetching paginated URL: ${requestUrl}`);
+        const requestData = await makeRequest(requestUrl);
+
+        if (requestData.response?.results?.length) {
+          allResults.push(...requestData.response.results);
+        }
+
+        const linkHeader = requestData.headers?.get("Link");
+        const match = linkHeader?.match(/<([^>]+)>;\s*rel="next"/);
+        nextUrl = match ? match[1] : null;
+
+        if (nextUrl) {
+          console.log(`Next URL: ${nextUrl}`);
+          await sleep(options.requestDelay);
+        } else {
+          console.log("No more pages to fetch.");
+        }
       }
-
-      total = data.meta?.results?.total || 0;
-      console.log(`Total results: ${total}`);
-      const limit = data.meta?.results?.limit || 0;
-      skip += limit;
-
-      if (skip < total) {
-        await sleep(options.requestDelay);
-      }
-    } while (skip < total && total > 0);
+    }
 
     return allResults;
   } catch (error) {
