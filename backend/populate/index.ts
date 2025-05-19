@@ -1,7 +1,7 @@
 import { ActiveIngredient, Drug, Prisma } from "@prisma/client";
 import prisma from "../src/prisma/client";
 import { fetchData } from "./fetch";
-import { ApiResponseDrugsFDA, LinkActiveIngredientToDrug, Medicamento, ProcessDrugActiveIngredients, Shortage, ShortageRecord, TermOccurrence } from "./types";
+import { LinkActiveIngredientToDrug, Medicamento, ProcessDrugActiveIngredients, Shortage, ShortageRecord, TermOccurrence } from "./types";
 
 async function batchCreateCompanies(empresas: TermOccurrence[]) {
   console.log(`Processando ${empresas.length} empresas...`);
@@ -295,7 +295,7 @@ async function createShortageRecord(data: Omit<ShortageRecord, "drug"> & { drug:
   console.log(`Registro de escassez criado para medicamento ID: ${drug.id}`);
 }
 
-async function processShortagesForDrugs(drugs: ApiResponseDrugsFDA[]) {
+async function processShortagesForDrugs(drugs: Medicamento[]) {
   const brandNames = drugs
     .filter(function (med) {
       return med.products &&
@@ -321,7 +321,7 @@ async function processShortagesForDrugs(drugs: ApiResponseDrugsFDA[]) {
   }
 }
 
-async function processDrugRecord(med: ApiResponseDrugsFDA, company: string) {
+async function processDrugRecord(med: Medicamento, company: string) {
   try {
     if (!med.products || !med.products.length || !med.products[0].brand_name) {
       console.log("Registro de medicamento inválido - faltam dados essenciais");
@@ -405,7 +405,7 @@ async function processDrugs(limit = 1000) {
     const url = new URL("https://api.fda.gov/drug/drugsfda.json");
     url.searchParams.set("limit", limit.toString());
 
-    const medicamentosData = await fetchData<ApiResponseDrugsFDA>(url, true);
+    const medicamentosData = await fetchData<Medicamento>(url, true);
 
     if (!medicamentosData || !Array.isArray(medicamentosData)) {
       console.warn(`Nenhum dado válido de medicamento!`);
