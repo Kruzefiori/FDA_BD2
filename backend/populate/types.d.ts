@@ -148,11 +148,3 @@ interface ShortageRecord {
   drug: Pick<Drug, "drugName">;
   shortage: Shortage;
 }
-
-interface ApiResponseDrugsFDA {
-  submissions: Submission[]
-  application_number: string
-  sponsor_name: string
-  openfda: Openfda
-  products: Product[]
-}
