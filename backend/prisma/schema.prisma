@@ -33,16 +33,7 @@ model User {
   role     Role   @default(USER)
 }
 
-model DrugBase {
-  name       String
-  strength   String
-  dosageForm String
-  route      String
-  Drug       Drug[]
-
-  @@id([name, strength])
-}
-
+// Uma shortage é uma falta de um medicamento no mercado.
 model Shortages {
   id                 Int      @id @default(autoincrement())
   drugId             Int
@@ -65,6 +56,7 @@ model AdverseReaction {
   reportDrugs RelAdverseReactionXReport[]
 }
 
+// O report e um relato de um evento adverso associado a um medicamento. Cada relatório pode conter informações sobre o país de ocorrência, data de transmissão, idade do paciente, sexo do paciente e peso do paciente. Além disso, cada relatório pode estar associado a vários medicamentos e reações adversas.
 model Report {
   id               Int                         @id @default(autoincrement())
   occurCountry     String
@@ -79,20 +71,24 @@ model Report {
 model ActiveIngredient {
   name     String
   strength String
-  drugs    RelActiveIngredientXDrug[]
+  Product  Product[]
 
   @@id([name, strength])
 }
 
-model RelActiveIngredientXDrug {
+// Um produto é um medicamento que contém um ou mais ingredientes ativos, cada um com uma força específica. O produto também tem uma forma de dosagem e uma via de administração.
+model Product {
   id                       Int              @id @default(autoincrement())
   activeIngredientName     String
   activeIngredientStrength String
+  dosageForm               String
+  route                    String
   drugId                   Int
   ActiveIngredient         ActiveIngredient @relation(fields: [activeIngredientName, activeIngredientStrength], references: [name, strength], onDelete: Cascade)
   Drug                     Drug             @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais efeitos adversos estão associados a um determinado medicamento?"
 model RelAdverseReactionXDrug {
   id              Int             @id @default(autoincrement())
   drugId          Int
@@ -101,6 +97,7 @@ model RelAdverseReactionXDrug {
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais reações adversas estão associadas a um determinado relatório?"
 model RelAdverseReactionXReport {
   id              Int             @id @default(autoincrement())
   reportId        Int
@@ -109,6 +106,7 @@ model RelAdverseReactionXReport {
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais medicamentos estão associados a um determinado relatório?"
 model RelReportXDrug {
   id       Int    @id @default(autoincrement())
   reportId Int
@@ -117,15 +115,18 @@ model RelReportXDrug {
   Drug     Drug   @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
+// A drug e o medicamento em si. A diferença entre a drug e o product e que a drug e o medicamento em si, 
+// enquanto o product e o produto que contém um ou mais ingredientes ativos, cada um com uma força específica.
+// O produto também tem uma forma de dosagem e uma via de administração. 
+// A drug pode ter vários produtos associados a ela, mas cada produto só pode estar associado a uma drug.
+// Um exemplo disso e a dipirona, que pode ser tomada em gotas, comprimidos, etc.
 model Drug {
-  id                       Int                        @id @default(autoincrement())
+  id                       Int                       @id @default(autoincrement())
   companyName              String
   drugName                 String
-  drugStrength             String
-  DrugBase                 DrugBase                   @relation(fields: [drugName, drugStrength], references: [name, strength], onDelete: Cascade)
-  Company                  Company                    @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  Company                  Company                   @relation(fields: [companyName], references: [name], onDelete: Cascade)
   Shortages                Shortages[]
-  RelActiveIngredientXDrug RelActiveIngredientXDrug[]
+  RelActiveIngredientXDrug Product[]
   RelAdverseReactionXDrug  RelAdverseReactionXDrug[]
   RelReportXDrug           RelReportXDrug[]
 }
