@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Drug" ALTER COLUMN "route" DROP NOT NULL;
