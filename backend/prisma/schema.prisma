@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://unifei:unifei@localhost:5433/UNIFEI?schema=public"
+  url      = "postgresql://unifei:unifei@localhost:5433/FDA_database?schema=public"
 }
 
 enum Role {
@@ -19,11 +19,11 @@ enum Role {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
-  role     Role   @default(USER)
+  id            Int     @id @default(autoincrement())
+  name          String
+  email         String  @unique
+  password      String
+  role          Role    @default(USER)
 }
 
 // Uma shortage é uma falta de um medicamento no mercado.

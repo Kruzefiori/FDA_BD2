@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://unifei:unifei@db:5432/FDA_database
+      - DATABASE_URL=postgresql://unifei:unifei@db:5433/FDA_database
     depends_on:
       - db
     networks:

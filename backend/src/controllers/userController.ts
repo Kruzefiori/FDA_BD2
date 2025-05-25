@@ -7,7 +7,7 @@ export const getUsers = async (req: Request, res: Response) => {
     const users = await userService.getAllUsers();
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar usuários' });
+    res.status(500).json(JSON.stringify(error));
   }
 };
 
@@ -21,16 +21,6 @@ export const getUser = async (req: Request, res: Response) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar usuário' });
-  }
-};
-
-export const createUser = async (req: Request, res: Response) => {
-  const { name, email , password, companyName} = req.body;
-  try {
-    const newUser = await userService.createUser(name, email ,password, companyName);
-    res.status(201).json(newUser);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao criar usuário' });
   }
 };
 
