@@ -12,9 +12,9 @@ export const getUserById = async (id: number) => {
 };
 
 export const createUser = async (name: string, email: string , password: string , companyName: string) => {
-  console.log('Creating user with name:', name, 'and email:', email);//ok
+  console.log('password' , password);//ok
   return await prisma.user.create({
-    data: { name, email , password },
+    data: { name: name, email:email , password:password },dszfgasgadfghadgv
   });
 };
 

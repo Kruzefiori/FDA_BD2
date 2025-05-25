@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  // binaryTargets   = ["debian-openssl-3.0.x", "rhel-openssl-3.0.x"]  // Adicione a plataforma correta
 }
 
 generator erd {
@@ -12,7 +11,12 @@ generator erd {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://unifei:unifei@localhost:5433/UNIFEI?schema=public"
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 model User {
@@ -23,75 +27,21 @@ model User {
   role     Role   @default(USER)
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-model Drug {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique // usado para relacionamentos com base no nome
-  products  Product[]
-  shortages Shortages[]
-  companies Company[] @relation("CompanyDrugs")
-  relAdverseReactionXDrug RelAdverseReactionXDrug[]
-  relReportXDrug RelReportXDrug[]
-  relActiveIngredientXDrug RelActiveIngredientXDrug[]
-
-  @@map("drugs")
-}
-
-model Product {
-  id                Int                     @id @default(autoincrement())
-  drugId            Int
-  productNumber     String?
-  referenceDrug     String?
-  dosageForm        String?
-  route             String?
-  marketingStatus   String?
-  drug              Drug                    @relation(fields: [drugId], references: [id])
-  activeIngredients ProductActiveIngredient[]
-
-  @@map("products")
-}
-
-model ActiveIngredient {
-  id       Int       @id @default(autoincrement())
-  name     String
-  strength String    // necessário para referência composta
-  products ProductActiveIngredient[]
-
-
-  @@unique([name, strength],  name: "name_strength")
-  @@map("active_ingredients")
-}
-
-model ProductActiveIngredient {
-  productId     Int
-  ingredientId  Int
-  strength      String
-
-  product       Product           @relation(fields: [productId], references: [id])
-  ingredient    ActiveIngredient  @relation(fields: [ingredientId], references: [id])
-
-  @@id([productId, ingredientId])
-  @@map("product_active_ingredients")
-}
-
+// Uma shortage é uma falta de um medicamento no mercado.
 model Shortages {
   id                 Int      @id @default(autoincrement())
-  drugName           String
-  drugStrength       String
+  drugId             Int
   dosageForm         String
   description        String?
   initialPostingDate DateTime
   presentation       String
-  Drug               Drug     @relation(fields: [drugName], references: [name], onDelete: Cascade)
+  Drug               Drug     @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
 model Company {
-  name  String @id
-  drugs Drug[] @relation("CompanyDrugs")
+  name      String @id
+  drugCount Int    @default(0)
+  Drugs     Drug[]
 }
 
 model AdverseReaction {
@@ -100,6 +50,7 @@ model AdverseReaction {
   reportDrugs RelAdverseReactionXReport[]
 }
 
+// O report e um relato de um evento adverso associado a um medicamento. Cada relatório pode conter informações sobre o país de ocorrência, data de transmissão, idade do paciente, sexo do paciente e peso do paciente. Além disso, cada relatório pode estar associado a vários medicamentos e reações adversas.
 model Report {
   id               Int                         @id @default(autoincrement())
   occurCountry     String
@@ -111,23 +62,36 @@ model Report {
   adverseReactions RelAdverseReactionXReport[]
 }
 
-model RelActiveIngredientXDrug {
+model ActiveIngredient {
+  name     String
+  strength String
+  Product  Product[]
+
+  @@id([name, strength])
+}
+
+// Um produto é um medicamento que contém um ou mais ingredientes ativos, cada um com uma força específica. O produto também tem uma forma de dosagem e uma via de administração.
+model Product {
   id                       Int              @id @default(autoincrement())
   activeIngredientName     String
   activeIngredientStrength String
-  drugName                 String
-  drugStrength             String
-  Drug                     Drug             @relation(fields: [drugName], references: [name], onDelete: Cascade)
+  dosageForm               String
+  route                    String
+  drugId                   Int
+  ActiveIngredient         ActiveIngredient @relation(fields: [activeIngredientName, activeIngredientStrength], references: [name, strength], onDelete: Cascade)
+  Drug                     Drug             @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais efeitos adversos estão associados a um determinado medicamento?"
 model RelAdverseReactionXDrug {
   id              Int             @id @default(autoincrement())
   drugName        String
   adverseReaction String
-  Drug            Drug            @relation(fields: [drugName], references: [name], onDelete: Cascade)
+  Drug            Drug            @relation(fields: [id], references: [id], onDelete: Cascade)
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais reações adversas estão associadas a um determinado relatório?"
 model RelAdverseReactionXReport {
   id              Int             @id @default(autoincrement())
   reportId        Int
@@ -136,10 +100,27 @@ model RelAdverseReactionXReport {
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
 }
 
+// Responde a pergunta: "Quais medicamentos estão associados a um determinado relatório?"
 model RelReportXDrug {
-  id           Int    @id @default(autoincrement())
-  reportId     Int
-  drugName     String
-  Report       Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  Drug         Drug   @relation(fields: [drugName], references: [name], onDelete: Cascade)
+  id       Int    @id @default(autoincrement())
+  reportId Int
+  drugId   Int
+  Report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  Drug     Drug   @relation(fields: [drugId], references: [id], onDelete: Cascade)
+}
+
+// A drug e o medicamento em si. A diferença entre a drug e o product e que a drug e o medicamento em si, 
+// enquanto o product e o produto que contém um ou mais ingredientes ativos, cada um com uma força específica.
+// O produto também tem uma forma de dosagem e uma via de administração. 
+// A drug pode ter vários produtos associados a ela, mas cada produto só pode estar associado a uma drug.
+// Um exemplo disso e a dipirona, que pode ser tomada em gotas, comprimidos, etc.
+model Drug {
+  id                       Int                       @id @default(autoincrement())
+  companyName              String
+  drugName                 String
+  Company                  Company                   @relation(fields: [companyName], references: [name], onDelete: Cascade)
+  Shortages                Shortages[]
+  RelActiveIngredientXDrug Product[]
+  RelAdverseReactionXDrug  RelAdverseReactionXDrug[]
+  RelReportXDrug           RelReportXDrug[]
 }
