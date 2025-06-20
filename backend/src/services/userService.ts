@@ -11,6 +11,13 @@ export const getUserById = async (id: number) => {
   });
 };
 
+export const createUser = async (name: string, email: string , password: string , companyName: string) => {
+  console.log('password' , password);//ok
+  return await prisma.user.create({
+    data: { name: name, email:email , password:password }
+  });
+};
+
 export const updateUser = async (id: number, name: string, email: string) => {
   return await prisma.user.update({
     where: { id },
