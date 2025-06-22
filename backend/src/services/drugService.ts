@@ -2,7 +2,8 @@
 import prisma from '../prisma/client';
 
 export const getDrugs = async (table: string, where: any) => {
-  console.log(where);
+  console.log('getDrugs called with table:', table);
+  console.log('where conditions:', where);
   switch (table) {
     case 'shortages':
       return await prisma.shortages.findMany({ 
