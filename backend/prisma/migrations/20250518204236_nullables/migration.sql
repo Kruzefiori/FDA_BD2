@@ -1,6 +1,0 @@
--- AlterTable
-ALTER TABLE "products" ALTER COLUMN "productNumber" DROP NOT NULL,
-ALTER COLUMN "referenceDrug" DROP NOT NULL,
-ALTER COLUMN "dosageForm" DROP NOT NULL,
-ALTER COLUMN "route" DROP NOT NULL,
-ALTER COLUMN "marketingStatus" DROP NOT NULL;

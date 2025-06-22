@@ -27,6 +27,9 @@ export const getUser = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   console.log('Creating user with body:', req.body); //ok
   const { name, email , password, companyName} = req.body;
+  if (!req || !req.body) {
+    return res.status(400).json({ error: 'Corpo da requisição não pode estar vazio' });
+  }
   try {
     const newUser = await userService.createUser(name, email ,password, 'companyName');
     res.status(201).json(newUser);

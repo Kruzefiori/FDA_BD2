@@ -3,12 +3,14 @@ import * as authService from '../services/authService';
 
 export const register = async (req: Request, res: Response) => {
   const { name, email, password } = req.body;
-
+  if (!req || !req.body) {
+    return res.status(400).json({ error: 'Corpo da requisição não pode estar vazio' });
+  }
   try {
     const user = await authService.register(name, email, password);
     res.status(201).json(user);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 

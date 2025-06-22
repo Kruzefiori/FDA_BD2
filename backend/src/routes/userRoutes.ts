@@ -1,12 +1,14 @@
 // src/routes/userRoutes.ts
-import { Router } from 'express';
+import { Request, Response, NextFunction, Router } from 'express';
 import { authenticateToken } from '../middleware/authMiddleware';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
 
 const router = Router();
 
-router.post('/register', authController.register);
+const asyncHandler = (fn: any) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(fn(req, res, next)).catch(next);
+
+router.post('/register', asyncHandler(authController.register));
 router.post('/login', authController.login);
 router.get('/get', authenticateToken, userController.getUsers);
 router.put('/update/:id', authenticateToken, userController.updateUser);

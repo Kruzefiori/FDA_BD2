@@ -5,9 +5,6 @@ async function main() {
   await prisma.relAdverseReactionXReport.deleteMany();
   await prisma.relAdverseReactionXDrug.deleteMany();
   await prisma.relReportXDrug.deleteMany();
-  await prisma.relActiveIngredientXDrug.deleteMany();
-
-  await prisma.productActiveIngredient.deleteMany();
   await prisma.product.deleteMany();
   await prisma.activeIngredient.deleteMany();
   await prisma.shortages.deleteMany();

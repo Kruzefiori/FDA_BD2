@@ -1,3 +1,4 @@
+/*
 import prisma from "./src/prisma/client";
 import fetch from "node-fetch";
 
@@ -481,5 +482,5 @@ const main = async () => {
   }
 };
 
-main();
+main(); */
 

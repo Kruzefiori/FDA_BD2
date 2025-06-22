@@ -10,6 +10,8 @@ export const register = async (name: string, email: string, password: string) =>
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  console.log('Creating user with name:', name, 'and email:', email);
+
   const newUser = await prisma.user.create({
     data: { name, email, password: hashedPassword },
   });
@@ -28,3 +30,7 @@ export const login = async (email: string, password: string) => {
 
   return { token, user };
 };
+
+export function getAll() {
+    throw new Error('Function not implemented.');
+}

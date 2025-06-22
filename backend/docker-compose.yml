@@ -7,11 +7,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://unifei:unifei@db:5433/FDA_database
+      - DATABASE_URL=postgresql://unifei:unifei@db:5432/FDA_database
     depends_on:
       - db
     networks:
       - app-network
+    volumes:
+      - .:/app
     deploy:
       resources:
         limits:
@@ -27,7 +29,7 @@ services:
       - POSTGRES_PASSWORD=unifei
       - POSTGRES_DB=FDA_database
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

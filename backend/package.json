@@ -14,9 +14,11 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.8.2",
+    "@types/node-fetch": "^2.6.12",
     "bcryptjs": "^3.0.2",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.4.2",
