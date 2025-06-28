@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PageLayout from "../components/PageLayout";
+import DynamicChart from "../components/DynamicChart";
 
 const PAGE_SIZE = 200;
 
@@ -507,6 +508,7 @@ export default function DrugSearch() {
                 ))}
               </tbody>
             </table>
+            <DynamicChart data={currentPageResults} fieldsToShow={fieldsToShow} />
 
             <footer className="mt-12 text-center text-sm text-gray-500 border-t pt-4">
               <p>
