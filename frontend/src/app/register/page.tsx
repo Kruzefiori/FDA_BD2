@@ -64,7 +64,7 @@ export default function RegisterPage() {
       </form>
 
       {message && (
-        <p className="mt-4 text-center text-sm text-red-500">{message}</p>
+        <p className="mt-4 text-center text-sm text-green-500">{message}</p>
       )}
 
       <div className="mt-4 text-center">

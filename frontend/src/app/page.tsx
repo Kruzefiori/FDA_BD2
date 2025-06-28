@@ -5,7 +5,7 @@ export default function HomePage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Welcome to Medicine Consultancy App!</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Bem vindo! Aplicação FDA Drugs Database</h1>
         <div className="space-y-4">
           <Link
             href="/login"

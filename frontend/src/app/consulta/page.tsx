@@ -254,8 +254,16 @@ export default function DrugSearch() {
     ? results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
     : results;
 
+  // Função para ordenar com rel* no final
+  function sortTables(tables: string[]) {
+    const relTables = tables.filter((t) => t.toLowerCase().startsWith("rel"));
+    const otherTables = tables.filter((t) => !t.toLowerCase().startsWith("rel"));
+    otherTables.sort((a, b) => a.localeCompare(b));
+    return [...otherTables, ...relTables];
+  }
+
   return (
-    <PageLayout title="Consulta Ad Hoc">
+    <PageLayout title="Consulta Ad Hoc - FDA BD2">
       <div className="text-gray-900 space-y-6">
         {/* Seleção da tabela */}
         <div>
@@ -273,7 +281,7 @@ export default function DrugSearch() {
             disabled={loading}
           >
             <option value="">-- Selecione --</option>
-            {Object.keys(allowedTables).map((opt) => (
+            {sortTables(Object.keys(allowedTables)).map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -335,8 +343,8 @@ export default function DrugSearch() {
                         dateFields.has(field)
                           ? "date"
                           : numberFields.has(field)
-                          ? "number"
-                          : "text"
+                            ? "number"
+                            : "text"
                       }
                       value={filters[field] || ""}
                       onChange={(e) => handleChangeFilter(field, e.target.value)}
@@ -366,8 +374,8 @@ export default function DrugSearch() {
                             dateFields.has(field)
                               ? "date"
                               : numberFields.has(field)
-                              ? "number"
-                              : "text"
+                                ? "number"
+                                : "text"
                           }
                           value={filters[field] || ""}
                           onChange={(e) => handleChangeFilter(field, e.target.value)}
