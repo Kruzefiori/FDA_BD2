@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import PageLayout from "../components/PageLayout";
 
-// Mesma estrutura usada no backend
+const PAGE_SIZE = 200;
+
 const allowedTables: Record<string, string[]> = {
   shortages: [
     "id",
     "drugId",
     "dosageForm",
     "description",
-    "minInitialPostingDate",
-    "maxInitialPostingDate",
+    "initialPostingDate",
     "presentation",
   ],
   company: ["name", "drugCount"],
@@ -19,13 +19,10 @@ const allowedTables: Record<string, string[]> = {
   report: [
     "id",
     "occurCountry",
-    "minTransmissionDate",
-    "maxTransmissionDate",
-    "minPatientAge",
-    "maxPatientAge",
+    "transmissionDate",
+    "patientAge",
     "patientGender",
-    "minPatientWeight",
-    "maxPatientWeight",
+    "patientWeight",
   ],
   activeIngredient: ["name", "strength"],
   product: [
@@ -67,7 +64,6 @@ const joinFieldsMap: Record<string, string[]> = {
   Company: ["name", "drugCount"],
   Shortages: [
     "id",
-    "drugId",
     "dosageForm",
     "description",
     "initialPostingDate",
@@ -75,26 +71,16 @@ const joinFieldsMap: Record<string, string[]> = {
   ],
   RelActiveIngredientXDrug: [
     "id",
-    "drugName",
-    "adverseReaction",
+    "activeIngredientName",
+    "activeIngredientStrength",
+    "dosageForm",
+    "route",
+    "drugId",
   ],
-  RelAdverseReactionXDrug: [
-    "id",
-    "drugName",
-    "adverseReaction",
-  ],
+  RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
   RelReportXDrug: ["id", "reportId", "drugId"],
   drugs: ["id", "companyName", "drugName"],
   adverseReactions: ["name"],
-  reportDrugs: ["id", "reportId", "adverseReaction"],
-  Report: [
-    "id",
-    "occurCountry",
-    "transmissionDate",
-    "patientAge",
-    "patientGender",
-    "patientWeight",
-  ],
   ActiveIngredient: ["name", "strength"],
   Product: [
     "id",
@@ -104,9 +90,20 @@ const joinFieldsMap: Record<string, string[]> = {
     "route",
     "drugId",
   ],
+  reportDrugs: ["id", "reportId", "drugId"],
+  Report: [
+    "id",
+    "occurCountry",
+    "transmissionDate",
+    "patientAge",
+    "patientGender",
+    "patientWeight",
+  ],
   AdverseReaction: ["name"],
-  relAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
 };
+
+const dateFields = new Set(["initialPostingDate", "transmissionDate"]);
+const numberFields = new Set(["patientAge", "patientWeight", "drugCount"]);
 
 export default function DrugSearch() {
   const [item, setItem] = useState("");
@@ -116,24 +113,21 @@ export default function DrugSearch() {
   const [results, setResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
 
-  // Atualiza os campos disponíveis para mostrar quando muda a tabela ou joins
+  // Atualiza campos para mostrar com prefixo join quando necessário
   useEffect(() => {
     if (!item) {
       setFieldsToShow({});
       return;
     }
 
-    // Campos da tabela principal
     const mainFields = allowedTables[item] || [];
-
-    // Campos dos joins selecionados
-    const joinFields = joins.flatMap((join) => joinFieldsMap[join] || []);
-
-    // Todos os campos juntos, evitando repetidos
-    const allFields = Array.from(new Set([...mainFields, ...joinFields]));
-
-    // Seleciona todos por padrão
+    const joinFields = joins.flatMap((join) =>
+      (joinFieldsMap[join] || []).map((field) => `${join}.${field}`)
+    );
+    const allFields = [...mainFields, ...joinFields];
     const newFieldsState: Record<string, boolean> = {};
     allFields.forEach((field) => {
       newFieldsState[field] = true;
@@ -142,39 +136,42 @@ export default function DrugSearch() {
     setFieldsToShow(newFieldsState);
   }, [item, joins]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [item, joins, filters, paginationEnabled]);
+
   const handleChangeFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleToggleJoin = (joinName: string) => {
-    setJoins((prev) => {
-      if (prev.includes(joinName)) {
-        return prev.filter((j) => j !== joinName);
-      } else {
-        return [...prev, joinName];
-      }
-    });
+  const handleToggleJoin = (join: string) => {
+    setJoins((prev) =>
+      prev.includes(join) ? prev.filter((j) => j !== join) : [...prev, join]
+    );
   };
 
   const handleToggleField = (field: string) => {
-    setFieldsToShow((prev) => ({ ...prev, [field]: !prev[field] }));
+    setFieldsToShow((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
+  const handleTogglePagination = () => {
+    setPaginationEnabled((prev) => !prev);
   };
 
   const buildQueryString = () => {
     if (!item) return "";
+
     const params = new URLSearchParams();
     params.append("item", item);
-
-    // Adiciona filtros
+    joins.forEach((j) => params.append("join", j));
     for (const key in filters) {
       if (filters[key]) {
         params.append(key, filters[key]);
       }
     }
-
-    // Adiciona joins
-    joins.forEach((join) => params.append("join", join));
-
     return params.toString();
   };
 
@@ -196,17 +193,17 @@ export default function DrugSearch() {
       return;
     }
 
-    const queryString = buildQueryString();
-    const url = `http://192.168.1.39:3000/drug/search?${queryString}`;
-
     try {
+      const queryString = buildQueryString();
+      const url = `http://192.168.1.39:3000/drug/search?${queryString}`;
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
       const text = await res.text();
-      if (!res.ok) {
-        throw new Error(`Erro: ${res.status} - ${text}`);
-      }
+      if (!res.ok) throw new Error(`Erro: ${res.status} - ${text}`);
       const data = JSON.parse(text);
       setResults(data);
     } catch (err: any) {
@@ -219,22 +216,24 @@ export default function DrugSearch() {
   const exportToCSV = () => {
     if (results.length === 0) return;
 
-    // Pega os campos marcados para mostrar
-    const columns = Object.entries(fieldsToShow)
+    const selectedFields = Object.entries(fieldsToShow)
       .filter(([_, checked]) => checked)
       .map(([field]) => field);
 
-    if (columns.length === 0) return;
-
-    const csvRows = [columns.join(",")];
+    const csvRows = [selectedFields.join(",")];
 
     results.forEach((row) => {
-      const rowData = columns.map((col) => {
-        const value = row[col];
+      const rowData = selectedFields.map((col) => {
+        const [joinMaybe, field] = col.includes(".")
+          ? col.split(".")
+          : [null, col];
+
+        let value = joinMaybe ? row[joinMaybe]?.[field] : row[field];
         if (value === null || value === undefined) return "";
         if (typeof value === "object") return `"${JSON.stringify(value)}"`;
         return `"${String(value).replace(/"/g, '""')}"`;
       });
+
       csvRows.push(rowData.join(","));
     });
 
@@ -250,11 +249,10 @@ export default function DrugSearch() {
     document.body.removeChild(link);
   };
 
-  // Campos para filtros (baseados em tabela + joins)
-  const filterFields = [
-    ...(allowedTables[item] || []),
-    ...joins.flatMap((j) => joinFieldsMap[j] || []),
-  ].filter((v, i, a) => a.indexOf(v) === i); // Uniq
+  const totalPages = Math.ceil(results.length / PAGE_SIZE);
+  const currentPageResults = paginationEnabled
+    ? results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : results;
 
   return (
     <PageLayout title="Consulta Ad Hoc">
@@ -269,6 +267,7 @@ export default function DrugSearch() {
               setFilters({});
               setJoins([]);
               setResults([]);
+              setPage(1);
             }}
             className="border rounded p-2 w-full"
             disabled={loading}
@@ -282,13 +281,29 @@ export default function DrugSearch() {
           </select>
         </div>
 
-        {/* Seleção dos joins permitidos */}
+        {/* Toggle paginação */}
+        <div className="mb-4">
+          <label className="inline-flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={paginationEnabled}
+              onChange={handleTogglePagination}
+              disabled={loading}
+            />
+            <span>Ativar paginação (200 resultados por página)</span>
+          </label>
+        </div>
+
+        {/* Joins disponíveis */}
         {item && (
           <div>
             <strong className="block mb-2">Joins disponíveis:</strong>
             <div className="flex flex-wrap gap-4">
               {(allowedJoinsPerTable[item] || []).map((join) => (
-                <label key={join} className="inline-flex items-center space-x-2">
+                <label
+                  key={join}
+                  className="inline-flex items-center space-x-2 cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     checked={joins.includes(join)}
@@ -302,40 +317,83 @@ export default function DrugSearch() {
           </div>
         )}
 
-        {/* Filtros */}
+        {/* FILTROS SUBDIVIDIDOS */}
         {item && (
           <div>
             <strong className="block mb-2">Filtros disponíveis:</strong>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filterFields.map((field) => (
-                <input
-                  key={field}
-                  type={
-                    field.toLowerCase().includes("date")
-                      ? "date"
-                      : field.toLowerCase().includes("age") ||
-                        field.toLowerCase().includes("weight")
-                      ? "number"
-                      : "text"
-                  }
-                  value={filters[field] || ""}
-                  onChange={(e) => handleChangeFilter(field, e.target.value)}
-                  className="border p-2 rounded w-full"
-                  placeholder={field}
-                  disabled={loading}
-                />
-              ))}
+            <div className="space-y-4">
+              {/* Tabela principal */}
+              <div>
+                <p className="font-semibold mb-2">
+                  Tabela principal: <span className="italic">{item}</span>
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(allowedTables[item] || []).map((field) => (
+                    <input
+                      key={field}
+                      type={
+                        dateFields.has(field)
+                          ? "date"
+                          : numberFields.has(field)
+                          ? "number"
+                          : "text"
+                      }
+                      value={filters[field] || ""}
+                      onChange={(e) => handleChangeFilter(field, e.target.value)}
+                      className="border p-2 rounded w-full"
+                      placeholder={`${item}.${field}`}
+                      disabled={loading}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Joins */}
+              {joins.map((join) => {
+                const joinFields = joinFieldsMap[join] || [];
+                if (joinFields.length === 0) return null;
+
+                return (
+                  <div key={join}>
+                    <p className="font-semibold mb-2">
+                      Join: <span className="italic">{join}</span>
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {joinFields.map((field) => (
+                        <input
+                          key={`${join}.${field}`}
+                          type={
+                            dateFields.has(field)
+                              ? "date"
+                              : numberFields.has(field)
+                              ? "number"
+                              : "text"
+                          }
+                          value={filters[field] || ""}
+                          onChange={(e) => handleChangeFilter(field, e.target.value)}
+                          className="border p-2 rounded w-full"
+                          placeholder={`${join}.${field}`}
+                          disabled={loading}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Campos para mostrar */}
+        {/* Campos para exibir no relatório */}
         {item && (
           <div>
             <strong className="block mb-2">Campos para exibir no relatório:</strong>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-48 overflow-auto border rounded p-3">
               {Object.entries(fieldsToShow).map(([field, checked]) => (
-                <label key={field} className="inline-flex items-center space-x-2">
+                <label
+                  key={field}
+                  className="inline-flex items-center space-x-2 cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     checked={checked}
@@ -368,11 +426,34 @@ export default function DrugSearch() {
           </button>
         </div>
 
-        {/* Erro */}
+        {/* Paginação */}
+        {paginationEnabled && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1 || loading}
+              className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages || loading}
+              className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+            >
+              Próximo
+            </button>
+          </div>
+        )}
+
+        {/* Mensagem de erro */}
         {error && <p className="mt-4 text-red-600 font-semibold">{error}</p>}
 
         {/* Resultados */}
-        {results.length > 0 && (
+        {currentPageResults.length > 0 && (
           <div className="overflow-auto mt-6">
             <table className="w-full border-collapse border border-gray-300 text-gray-900">
               <thead>
@@ -380,34 +461,38 @@ export default function DrugSearch() {
                   {Object.entries(fieldsToShow)
                     .filter(([_, checked]) => checked)
                     .map(([col]) => (
-                      <th key={col} className="border border-gray-300 p-2 text-left">
+                      <th
+                        key={col}
+                        className="border border-gray-300 p-2 text-left"
+                      >
                         {col}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody>
-                {results.map((row, i) => (
-                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                {currentPageResults.map((row, i) => (
+                  <tr
+                    key={i}
+                    className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
                     {Object.entries(fieldsToShow)
                       .filter(([_, checked]) => checked)
                       .map(([col]) => {
-                        let value = row[col];
-                        // Caso o campo não exista diretamente (ex: join), procura em objetos aninhados
-                        if (value === undefined) {
-                          // busca em joins (assumindo que o nome do campo pode estar na propriedade do join)
-                          for (const join of joins) {
-                            if (row[join] && typeof row[join] === "object") {
-                              if (row[join][col] !== undefined) {
-                                value = row[join][col];
-                                break;
-                              }
-                            }
-                          }
-                        }
+                        const [joinMaybe, field] = col.includes(".")
+                          ? col.split(".")
+                          : [null, col];
 
-                        if (value === null || value === undefined) return <td key={col}></td>;
-                        if (typeof value === "object") return <td key={col}>{JSON.stringify(value)}</td>;
+                        const value = joinMaybe
+                          ? row[joinMaybe]?.[field]
+                          : row[field];
+
+                        if (value === null || value === undefined)
+                          return <td key={col}></td>;
+
+                        if (typeof value === "object")
+                          return <td key={col}>{JSON.stringify(value)}</td>;
+
                         return <td key={col}>{String(value)}</td>;
                       })}
                   </tr>
@@ -418,12 +503,13 @@ export default function DrugSearch() {
             <footer className="mt-12 text-center text-sm text-gray-500 border-t pt-4">
               <p>
                 <strong>
-                  Do not rely on openFDA to make decisions regarding medical care. Consult a Doctor
+                  Do not rely on openFDA to make decisions regarding medical care.
+                  Consult a Doctor
                 </strong>
                 <br />
                 <em>
-                  Não confie no openFDA para tomar decisões relacionadas a cuidados médicos. Consulte
-                  um médico
+                  Não confie no openFDA para tomar decisões relacionadas a cuidados
+                  médicos. Consulte um médico
                 </em>
               </p>
             </footer>

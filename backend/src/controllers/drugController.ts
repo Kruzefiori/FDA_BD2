@@ -2,11 +2,11 @@ import { Request, Response } from 'express';
 import * as drugService from '../services/drugService';
 import { ParsedQs } from 'qs';
 
-const allowedTables: Record<string, string[]> = {
-  shortages: ['id', 'drugId', 'dosageForm', 'description', 'minInitialPostingDate', 'maxInitialPostingDate', 'presentation'],
+const allowedTables = {
+  shortages: ['id', 'drugId', 'dosageForm', 'description', 'initialPostingDate', 'presentation'],
   company: ['name', 'drugCount'],
   adverseReaction: ['name'],
-  report: ['id', 'occurCountry', 'minTransmissionDate', 'maxTransmissionDate', 'minPatientAge', 'maxPatientAge', 'patientGender', 'minPatientWeight', 'maxPatientWeight'],
+  report: ['id', 'occurCountry', 'transmissionDate', 'patientAge', 'patientGender', 'patientWeight'],
   activeIngredient: ['name', 'strength'],
   product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
   relAdverseReactionXDrug: ['id', 'drugName', 'adverseReaction'],
@@ -24,36 +24,40 @@ const allowedJoins: Record<string, string[]> = {
   shortages: ['Drug'],
   company: ['Drugs'],
   drug: ['Company', 'Shortages', 'RelActiveIngredientXDrug', 'RelAdverseReactionXDrug', 'RelReportXDrug'],
-  report: ['drugs', 'adverseReactions'],
+  report: ['RelReportXDrug', 'adverseReactions'],
   product: ['ActiveIngredient', 'Drug'],
   activeIngredient: ['Product'],
-  adverseReaction: ['drugs', 'reportDrugs'],
+  adverseReaction: ['RelAdverseReactionXDrug', 'RelAdverseReactionXReport'],
   relAdverseReactionXDrug: ['Drug', 'AdverseReaction'],
   relAdverseReactionXReport: ['Report', 'AdverseReaction'],
   relReportXDrug: ['Report', 'Drug'],
 };
 
 export const getDrugs = async (req: Request, res: Response) => {
-  const { item: rawItem, join: rawJoin, ...params } = req.query;
+  const { item, join, ...params } = req.query;
 
-  const item = typeof rawItem === 'string' ? rawItem : null;
-  if (!item || !(item in allowedTables)) {
+  if (!item || typeof item !== 'string' || !(item in allowedTables)) {
     return res.status(400).json({ error: 'Invalid or missing item parameter. Allowed items are: ' + Object.keys(allowedTables).join(', ') });
   }
 
-  const allowedFields = allowedTables[item];
+  const allowedFields = allowedTables[item as keyof typeof allowedTables];
   const invalidFields = Object.keys(params).filter(
     (key) =>
       !allowedFields.includes(key) &&
       !key.startsWith('min') &&
       !key.startsWith('max')
   );
+  // if (invalidFields.length > 0) {
+  //   return res.status(400).json({
+  //     error: `Invalid parameters for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedFields.join(', ')}`,
+  //   });
+  // }
 
-  const joins: string[] = Array.isArray(rawJoin)
-    ? rawJoin.map(j => String(j))
-    : rawJoin
-      ? [String(rawJoin)]
-      : [];
+  const joins = Array.isArray(join)
+    ? (join as (string | ParsedQs)[]).map(String)
+    : join
+    ? [String(join)]
+    : [];
 
   const validJoins = allowedJoins[item] || [];
   const invalidJoins = joins.filter(j => !validJoins.includes(j));
@@ -64,11 +68,11 @@ export const getDrugs = async (req: Request, res: Response) => {
   }
 
   const where = buildWhere(item, params, allowedFields);
-  const include = buildInclude(joins);
+  const include = buildInclude(item, joins, params);
 
   try {
-    const drugs = await drugService.getDrugs(item, where, include);
-    res.status(200).json(drugs);
+    const data = await drugService.getDrugs(item, where, include);
+    res.status(200).json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -103,10 +107,43 @@ const buildWhere = (item: string, params: any, allowedFields: string[]) => {
   return where;
 };
 
-const buildInclude = (joins: string[]): any => {
-  const include: Record<string, boolean> = {};
-  for (const j of joins) {
-    include[j] = true;
+const buildInclude = (item: string, joins: string[], params: any): any => {
+  const include: any = {};
+
+  const joinRelationsMap: Record<string, any> = {
+    Company: true,
+    Drug: true,
+    Shortages: true,
+    Product: true,
+    ActiveIngredient: true,
+    adverseReactions: true,
+    reportDrugs: true,
+    Report: true,
+    AdverseReaction: true,
+    RelReportXDrug: {
+      include: {
+        Report: true,
+        Drug: true,
+      }
+    },
+    RelAdverseReactionXDrug: {
+      include: {
+        Drug: true,
+        AdverseReaction: true,
+      }
+    },
+    RelAdverseReactionXReport: {
+      include: {
+        Report: true,
+        AdverseReaction: true,
+      }
+    },
+  };
+
+  for (const joinName of joins) {
+    const val = joinRelationsMap[joinName];
+    include[joinName] = val ?? true;
   }
+
   return include;
 };
