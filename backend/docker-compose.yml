@@ -29,7 +29,7 @@ services:
       - POSTGRES_PASSWORD=unifei
       - POSTGRES_DB=FDA_database
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
