@@ -3,50 +3,86 @@
 import { useState } from "react";
 import PageLayout from "../components/PageLayout";
 
-const allowedItems = [
-  "shortages",
-  "company",
-  "adverseReaction",
-  "report",
-  "activeIngredient",
-  "product",
-  "relAdverseReactionXDrug",
-  "relAdverseReactionXReport",
-  "relReportXDrug",
-  "drug",
-];
+// Mesma estrutura usada no backend
+const allowedTables: Record<string, string[]> = {
+  shortages: [
+    'id',
+    'drugId',
+    'dosageForm',
+    'description',
+    'minInitialPostingDate',
+    'maxInitialPostingDate',
+    'presentation',
+  ],
+  company: ['name', 'drugCount'],
+  adverseReaction: ['name'],
+  report: [
+    'id',
+    'occurCountry',
+    'minTransmissionDate',
+    'maxTransmissionDate',
+    'minPatientAge',
+    'maxPatientAge',
+    'patientGender',
+    'minPatientWeight',
+    'maxPatientWeight',
+  ],
+  activeIngredient: ['name', 'strength'],
+  product: [
+    'id',
+    'activeIngredientName',
+    'activeIngredientStrength',
+    'dosageForm',
+    'route',
+    'drugId',
+  ],
+  relAdverseReactionXDrug: ['id', 'drugName', 'adverseReaction'],
+  relAdverseReactionXReport: ['id', 'reportId', 'adverseReaction'],
+  relReportXDrug: ['id', 'reportId', 'drugId'],
+  drug: ['id', 'companyName', 'drugName'],
+};
+
+const rangeFields: Record<string, string[]> = {
+  shortages: ['minInitialPostingDate', 'maxInitialPostingDate'],
+  report: [
+    'minTransmissionDate',
+    'maxTransmissionDate',
+    'minPatientAge',
+    'maxPatientAge',
+    'minPatientWeight',
+    'maxPatientWeight',
+  ],
+};
+
+
+
 
 export default function DrugSearch() {
   const [item, setItem] = useState("");
-  const [filters, setFilters] = useState<{ key: string; value: string }[]>([]);
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [results, setResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const addFilter = () => {
-    if (!newKey || !newValue) return;
-    setFilters([...filters, { key: newKey, value: newValue }]);
-    setNewKey("");
-    setNewValue("");
-  };
-
-  const removeFilter = (index: number) => {
-    setFilters(filters.filter((_, i) => i !== index));
+  const handleChangeFilter = (key: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const buildQueryString = () => {
     if (!item) return "";
     const params = new URLSearchParams();
     params.append("item", item);
-    filters.forEach(({ key, value }) => {
-      params.append(key, value);
-    });
+    for (const key in filters) {
+      if (filters[key]) {
+        params.append(key, filters[key]);
+      }
+    }
     return params.toString();
   };
 
   const handleSearch = async () => {
+    console.log("handleSearch chamado");
+
     setError(null);
     setLoading(true);
     setResults([]);
@@ -72,18 +108,13 @@ export default function DrugSearch() {
 
     try {
       const res = await fetch(url, {
-        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      console.log("Status:", res.status);
-      console.log("Headers:", Array.from(res.headers.entries()));
-
       const text = await res.text();
       console.log("Resposta bruta da API:", text);
-
 
       if (!res.ok) {
         throw new Error(`Erro: ${res.status} - ${text}`);
@@ -98,21 +129,56 @@ export default function DrugSearch() {
     setLoading(false);
   };
 
+  const exportToCSV = () => {
+    if (results.length === 0) return;
+
+    const columns = Object.keys(results[0]);
+    const csvRows = [columns.join(",")];
+
+    results.forEach((row) => {
+      const rowData = columns.map((col) => {
+        const value = row[col];
+        if (value === null || value === undefined) return "";
+        if (typeof value === "object") return `"${JSON.stringify(value)}"`;
+        return `"${String(value).replace(/"/g, '""')}"`; // Escapa aspas duplas
+      });
+      csvRows.push(rowData.join(","));
+    });
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `resultado-${item}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filterFields = item ? allowedTables[item] ?? [] : [];
+  const rangeForItem = item ? rangeFields[item] ?? [] : [];
+
   const columns = results.length > 0 ? Object.keys(results[0]) : [];
 
   return (
     <PageLayout title="Consulta Ad Hoc">
       <div className="text-gray-900">
-        <div className="mb-4">
+        <div className="mb-6">
           <label className="block font-semibold mb-1">Tabela (item):</label>
           <select
             value={item}
-            onChange={(e) => setItem(e.target.value)}
-            className="border rounded p-2 w-full text-gray-900 placeholder-gray-400"
+            onChange={(e) => {
+              setItem(e.target.value);
+              setFilters({});
+              setResults([]);
+            }}
+            className="border rounded p-2 w-full"
             disabled={loading}
           >
             <option value="">-- Selecione --</option>
-            {allowedItems.map((opt) => (
+            {Object.keys(allowedTables).map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -120,64 +186,50 @@ export default function DrugSearch() {
           </select>
         </div>
 
-        <div className="mb-4 flex gap-2">
-          <input
-            type="text"
-            placeholder="Campo"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            className="border rounded p-2 flex-grow text-gray-900 placeholder-gray-400"
-            disabled={loading}
-          />
-          <input
-            type="text"
-            placeholder="Valor"
-            value={newValue}
-            onChange={(e) => setNewValue(e.target.value)}
-            className="border rounded p-2 flex-grow text-gray-900 placeholder-gray-400"
-            disabled={loading}
-          />
+        {item && (
+          <div className="mb-6">
+            <strong className="block mb-2">Filtros disponíveis:</strong>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filterFields.map((field) => (
+                <input
+                  key={field}
+                  type={
+                    field.toLowerCase().includes("date")
+                      ? "date"
+                      : field.toLowerCase().includes("age") ||
+                        field.toLowerCase().includes("weight")
+                        ? "number"
+                        : "text"
+                  }
+                  value={filters[field] || ""}
+                  onChange={(e) => handleChangeFilter(field, e.target.value)}
+                  className="border p-2 rounded w-full"
+                  placeholder={rangeForItem.includes(field) ? `${field} (intervalo)` : field}
+                  disabled={loading}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-4 mt-2 mb-4">
           <button
-            onClick={addFilter}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded disabled:opacity-50"
-            type="button"
+            onClick={handleSearch}
             disabled={loading}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded disabled:opacity-50"
           >
-            Adicionar filtro
+            {loading ? "Buscando..." : "Buscar"}
+          </button>
+
+          <button
+            onClick={exportToCSV}
+            disabled={results.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+          >
+            Exportar CSV
           </button>
         </div>
 
-        <div className="mb-4">
-          <strong>Filtros:</strong>
-          <ul>
-            {filters.map(({ key, value }, i) => (
-              <li
-                key={i}
-                className="flex justify-between items-center border p-2 rounded my-1 text-gray-900"
-              >
-                <span>
-                  <code>{key}</code> = <code>{value}</code>
-                </span>
-                <button
-                  onClick={() => removeFilter(i)}
-                  className="text-red-600 font-bold"
-                  type="button"
-                  disabled={loading}
-                >
-                  X
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded disabled:opacity-50"
-        >
-          {loading ? "Buscando..." : "Buscar"}
-        </button>
 
         {error && (
           <p className="mt-4 text-red-600 font-semibold">{error}</p>
