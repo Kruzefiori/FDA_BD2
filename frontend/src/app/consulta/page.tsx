@@ -6,6 +6,43 @@ import DynamicChart from "../components/DynamicChart";
 
 const PAGE_SIZE = 200;
 
+const displayNames: Record<string, string> = {
+  "activeIngredient": "Ingrediente Ativo",
+  "adverseReaction": "Reação Adversa",
+  "company": "Empresa",
+  "drug": "Medicamento",
+  "drugs": "Medicamento",
+  "product": "Produto",
+  "report": "Relatório de Reações Adversas",
+  "shortages": "Escassez de Medicamentos",
+  "dosageForm": "Forma Farmacêutica",
+  "presentation": "Apresentação",
+  "route": "Via de Administração",
+  "drugId": "ID do Medicamento",
+  "drugName": "Nome do Medicamento",
+  "companyName": "Nome da Empresa",
+  "description": "Descrição",
+  "initialPostingDate": "Data de Publicação Inicial",
+  "occurCountry": "País de Ocorrência",
+  "transmissionDate": "Data de Transmissão",
+  "patientAge": "Idade do Paciente",
+  "patientGender": "Gênero do Paciente",
+  "patientWeight": "Peso do Paciente",
+  "activeIngredientName": "Nome do Ingrediente Ativo",
+  "activeIngredientStrength": "Concentração do Ingrediente Ativo",
+  "strength": "Concentração",
+  "drugCount": "Contagem de Medicamentos",
+  "name": "Nome",
+  "id": "ID"
+}
+
+const getDisplayName = (key: string): string => {
+  const found = Object.entries(displayNames).find(
+    ([k]) => k.toLowerCase() === key.toLowerCase()
+  );
+  return found ? found[1] : key + "No String";
+}
+
 const allowedTables: Record<string, string[]> = {
   shortages: [
     "id",
@@ -34,29 +71,23 @@ const allowedTables: Record<string, string[]> = {
     "route",
     "drugId",
   ],
-  relAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
-  relAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
-  relReportXDrug: ["id", "reportId", "drugId"],
+  // relAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
+  // relAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
+  // relReportXDrug: ["id", "reportId", "drugId"],
   drug: ["id", "companyName", "drugName"],
 };
 
 const allowedJoinsPerTable: Record<string, string[]> = {
   shortages: ["Drug"],
   company: ["Drugs"],
-  drug: [
-    "Company",
-    "Shortages",
-    "RelActiveIngredientXDrug",
-    "RelAdverseReactionXDrug",
-    "RelReportXDrug",
-  ],
+  drug: ["Company", "Shortages"],
   report: ["drugs", "adverseReactions"],
   product: ["ActiveIngredient", "Drug"],
   activeIngredient: ["Product"],
   adverseReaction: ["drugs", "reportDrugs"],
-  relAdverseReactionXDrug: ["Drug", "AdverseReaction"],
-  relAdverseReactionXReport: ["Report", "AdverseReaction"],
-  relReportXDrug: ["Report", "Drug"],
+  // relAdverseReactionXDrug: ["Drug", "AdverseReaction"],
+  // relAdverseReactionXReport: ["Report", "AdverseReaction"],
+  // relReportXDrug: ["Report", "Drug"],
 };
 
 const joinFieldsMap: Record<string, string[]> = {
@@ -70,16 +101,16 @@ const joinFieldsMap: Record<string, string[]> = {
     "initialPostingDate",
     "presentation",
   ],
-  RelActiveIngredientXDrug: [
+  /* RelActiveIngredientXDrug: [
     "id",
     "activeIngredientName",
     "activeIngredientStrength",
     "dosageForm",
     "route",
     "drugId",
-  ],
-  RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
-  RelReportXDrug: ["id", "reportId", "drugId"],
+  ], */
+  // RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
+  // RelReportXDrug: ["id", "reportId", "drugId"],
   drugs: ["id", "companyName", "drugName"],
   adverseReactions: ["name"],
   ActiveIngredient: ["name", "strength"],
@@ -173,6 +204,12 @@ export default function DrugSearch() {
         params.append(key, filters[key]);
       }
     }
+    const selectedFields = Object.entries(fieldsToShow)
+      .filter(([_, checked]) => checked)
+      .map(([field]) => field);
+    if (selectedFields.length > 0) {
+      params.append("fields", selectedFields.join(","));
+    }
     return params.toString();
   };
 
@@ -196,7 +233,7 @@ export default function DrugSearch() {
 
     try {
       const queryString = buildQueryString();
-      const url = `http://192.168.1.39:3000/drug/search?${queryString}`;
+      const url = `http://localhost:3000/drug/search?${queryString}`;
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -268,7 +305,7 @@ export default function DrugSearch() {
       <div className="text-gray-900 space-y-6">
         {/* Seleção da tabela */}
         <div>
-          <label className="block font-semibold mb-1">Tabela (item):</label>
+          <label className="block font-semibold mb-1">Item de Pesquisa:</label>
           <select
             value={item}
             onChange={(e) => {
@@ -284,7 +321,7 @@ export default function DrugSearch() {
             <option value="">-- Selecione --</option>
             {sortTables(Object.keys(allowedTables)).map((opt) => (
               <option key={opt} value={opt}>
-                {opt}
+                {getDisplayName(opt)}
               </option>
             ))}
           </select>
@@ -306,7 +343,7 @@ export default function DrugSearch() {
         {/* Joins disponíveis */}
         {item && (
           <div>
-            <strong className="block mb-2">Joins disponíveis:</strong>
+            <strong className="block mb-2">Pesquisas Cruzada Disponíveis:</strong>
             <div className="flex flex-wrap gap-4">
               {(allowedJoinsPerTable[item] || []).map((join) => (
                 <label
@@ -319,7 +356,7 @@ export default function DrugSearch() {
                     onChange={() => handleToggleJoin(join)}
                     disabled={loading}
                   />
-                  <span>{join}</span>
+                  <span>{getDisplayName(join)}</span>
                 </label>
               ))}
             </div>
@@ -334,7 +371,7 @@ export default function DrugSearch() {
               {/* Tabela principal */}
               <div>
                 <p className="font-semibold mb-2">
-                  Tabela principal: <span className="italic">{item}</span>
+                  Pesquisa principal: <span className="italic">{displayNames[item] || item}</span>
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(allowedTables[item] || []).map((field) => (
@@ -350,7 +387,7 @@ export default function DrugSearch() {
                       value={filters[field] || ""}
                       onChange={(e) => handleChangeFilter(field, e.target.value)}
                       className="border p-2 rounded w-full"
-                      placeholder={`${item}.${field}`}
+                      placeholder={`${getDisplayName(field)}`}
                       disabled={loading}
                     />
                   ))}
@@ -381,7 +418,7 @@ export default function DrugSearch() {
                           value={filters[field] || ""}
                           onChange={(e) => handleChangeFilter(field, e.target.value)}
                           className="border p-2 rounded w-full"
-                          placeholder={`${join}.${field}`}
+                          placeholder={`${getDisplayName(field)}`}
                           disabled={loading}
                         />
                       ))}
@@ -409,7 +446,7 @@ export default function DrugSearch() {
                     onChange={() => handleToggleField(field)}
                     disabled={loading}
                   />
-                  <span>{field}</span>
+                  <span>{getDisplayName(field)}</span>
                 </label>
               ))}
             </div>
@@ -514,12 +551,12 @@ export default function DrugSearch() {
               <p>
                 <strong>
                   Do not rely on openFDA to make decisions regarding medical care.
-                  Consult a Doctor
+                  Consult a specialized doctor.
                 </strong>
                 <br />
                 <em>
                   Não confie no openFDA para tomar decisões relacionadas a cuidados
-                  médicos. Consulte um médico
+                  médicos. Consulte um médico especializado.
                 </em>
               </p>
             </footer>

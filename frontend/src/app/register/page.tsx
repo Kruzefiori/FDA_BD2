@@ -16,7 +16,7 @@ export default function RegisterPage() {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://192.168.1.39:3000/user/register", {
+      const response = await fetch("http://localhost:3000/user/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

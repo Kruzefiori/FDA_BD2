@@ -9,9 +9,9 @@ const allowedTables = {
   report: ['id', 'occurCountry', 'transmissionDate', 'patientAge', 'patientGender', 'patientWeight'],
   activeIngredient: ['name', 'strength'],
   product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
-  relAdverseReactionXDrug: ['id', 'drugName', 'adverseReaction'],
-  relAdverseReactionXReport: ['id', 'reportId', 'adverseReaction'],
-  relReportXDrug: ['id', 'reportId', 'drugId'],
+  // relAdverseReactionXDrug: ['id', 'drugName', 'adverseReaction'],
+  // relAdverseReactionXReport: ['id', 'reportId', 'adverseReaction'],
+  // relReportXDrug: ['id', 'reportId', 'drugId'],
   drug: ['id', 'companyName', 'drugName'],
 };
 
@@ -21,37 +21,50 @@ const rangeFields: Record<string, string[]> = {
 };
 
 const allowedJoins: Record<string, string[]> = {
-  shortages: ['Drug'],
   company: ['Drugs'],
-  drug: ['Company', 'Shortages', 'RelActiveIngredientXDrug', 'RelAdverseReactionXDrug', 'RelReportXDrug'],
-  report: ['RelReportXDrug', 'adverseReactions'],
+  drug: ['Company', 'Shortages'],
+  report: ['Drug', 'AdverseReactions'],
   product: ['ActiveIngredient', 'Drug'],
   activeIngredient: ['Product'],
-  adverseReaction: ['RelAdverseReactionXDrug', 'RelAdverseReactionXReport'],
-  relAdverseReactionXDrug: ['Drug', 'AdverseReaction'],
-  relAdverseReactionXReport: ['Report', 'AdverseReaction'],
-  relReportXDrug: ['Report', 'Drug'],
+  adverseReaction: ['Drug', 'Report'],
+  shortages: ['Drug'],
+  // relAdverseReactionXDrug: ['Drug', 'AdverseReaction'],
+  // relAdverseReactionXReport: ['Report', 'AdverseReaction'],
+  // relReportXDrug: ['Report', 'Drug'],
 };
 
 export const getDrugs = async (req: Request, res: Response) => {
-  const { item, join, ...params } = req.query;
+  const { item, join, fields, ...params } = req.query;
 
   if (!item || typeof item !== 'string' || !(item in allowedTables)) {
     return res.status(400).json({ error: 'Invalid or missing item parameter. Allowed items are: ' + Object.keys(allowedTables).join(', ') });
   }
 
-  const allowedFields = allowedTables[item as keyof typeof allowedTables];
-  const invalidFields = Object.keys(params).filter(
+  const allowedItems = allowedTables[item as keyof typeof allowedTables];
+  const invalidItems = Object.keys(params).filter(
     (key) =>
-      !allowedFields.includes(key) &&
+      !allowedItems.includes(key) &&
       !key.startsWith('min') &&
       !key.startsWith('max')
   );
   // if (invalidFields.length > 0) {
   //   return res.status(400).json({
-  //     error: `Invalid parameters for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedFields.join(', ')}`,
+  //     error: `Invalid parameters for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedItems.join(', ')}`,
   //   });
   // }
+
+  let select: Record<string, boolean> = {};
+  if (fields) {
+    const fieldList = String(fields).split(',').map(f => f.trim());
+    const invalidFields = fieldList.filter(f => !allowedItems.includes(f));
+    if (invalidFields.length > 0) {
+      return res.status(400).json({
+        error: `Invalid fields for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedItems.join(', ')}`,
+      });
+    }
+    select = {};
+    for (const f of fieldList) select[f] = true;
+  }
 
   const joins = Array.isArray(join)
     ? (join as (string | ParsedQs)[]).map(String)
@@ -67,22 +80,22 @@ export const getDrugs = async (req: Request, res: Response) => {
     });
   }
 
-  const where = buildWhere(item, params, allowedFields);
+  const where = buildWhere(item, params, allowedItems);
   const include = buildInclude(item, joins, params);
 
   try {
-    const data = await drugService.getDrugs(item, where, include);
+    const data = await drugService.getDrugs(item, where, include, select);
     res.status(200).json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 };
 
-const buildWhere = (item: string, params: any, allowedFields: string[]) => {
+const buildWhere = (item: string, params: any, allowedItems: string[]) => {
   const where: any = {};
   const rangeAllowed = rangeFields[item] || [];
 
-  for (const field of allowedFields) {
+  for (const field of allowedItems) {
     if (rangeAllowed.includes(field) && params[field] !== undefined) {
       if (field.startsWith('min')) {
         let fieldName = field.replace('min', '');
@@ -109,6 +122,8 @@ const buildWhere = (item: string, params: any, allowedFields: string[]) => {
 
 const buildInclude = (item: string, joins: string[], params: any): any => {
   const include: any = {};
+
+  console.log(params)
 
   const joinRelationsMap: Record<string, any> = {
     Company: true,
@@ -144,6 +159,11 @@ const buildInclude = (item: string, joins: string[], params: any): any => {
     const val = joinRelationsMap[joinName];
     include[joinName] = val ?? true;
   }
+
+  /*
+  Object.keys(params).forEach((key) => {
+    include[key] = true;
+  }); */
 
   return include;
 };
