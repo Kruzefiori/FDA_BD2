@@ -1,25 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AuthLayout from "../components/AuthLayout";
 import { Input, Button, LinkButton } from "../components/ui";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
   const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:3000/user/create", {
+      const response = await fetch("http://192.168.1.39:3000/user/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name }),
       });
 
       if (!response.ok) {
@@ -27,22 +29,19 @@ export default function RegisterPage() {
         throw new Error(errorData.message || "Erro no cadastro");
       }
 
-      const data = await response.json();
       setMessage("Cadastro realizado com sucesso!");
-
-      console.log("Sucesso:", data);
+      router.push("/login"); // Redireciona para login
     } catch (error: any) {
       setMessage(error.message);
-      console.error("Erro:", error);
     }
   };
 
   return (
     <AuthLayout title="Cadastro">
       <form onSubmit={handleRegister} className="space-y-4">
-      <Input
-          type="name"
-          placeholder="Name"
+        <Input
+          type="text"
+          placeholder="Nome"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required

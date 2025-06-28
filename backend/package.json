@@ -14,14 +14,20 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.8.2",
-    "express": "^5.1.0"
+    "@types/node-fetch": "^2.6.12",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.4.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.14.1",
     "prisma": "^6.8.2",
-    "prisma-erd-generator": "^2.0.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"

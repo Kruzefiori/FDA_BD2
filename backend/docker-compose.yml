@@ -12,6 +12,8 @@ services:
       - db
     networks:
       - app-network
+    volumes:
+      - .:/app
     deploy:
       resources:
         limits:
