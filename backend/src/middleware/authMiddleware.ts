@@ -7,8 +7,6 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(' ')[1];
 
-  console.log(token);
-
   if (!token) {
     res.status(401).json({ error: 'Token missing' });
     return;

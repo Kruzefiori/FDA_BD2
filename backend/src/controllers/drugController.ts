@@ -12,6 +12,11 @@ const allowedTables = [
   'drug'
 ];
 
+const ternaryTables = [
+  'adverseReaction',
+  'report'
+]
+
 const rangeFields: Record<string, string[]> = {
   shortages: ['minInitialPostingDate', 'maxInitialPostingDate'],
   report: ['minTransmissionDate', 'maxTransmissionDate', 'minPatientAge', 'maxPatientAge', 'minPatientWeight', 'maxPatientWeight']
@@ -23,7 +28,7 @@ const allowedJoins: Record<string, string[]> = {
   report: ['drugs', 'adverseReactions'],
   product: ['ActiveIngredient', 'Drug'],
   activeIngredient: ['Product'],
-  adverseReaction: ['drugs', 'reportDrugs'],
+  adverseReaction: ['drugs', 'report'],
   shortages: ['Drug'],
   // relAdverseReactionXDrug: ['Drug', 'AdverseReaction'],
   // relAdverseReactionXReport: ['Report', 'AdverseReaction'],
@@ -41,11 +46,55 @@ const allowedFields: Record<string, string[]> = {
   // relAdverseReactionXReport: ['id', 'reportId', 'adverseReaction'],
   // relReportXDrug: ['id', 'reportId', 'drugId'],
   drug: ['id', 'companyName', 'drugName'],
+  // plural
+  adverseReactions: ['name'],
+  drugs: ['id', 'companyName', 'drugName'],
+  Product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
 };
+
+type Ternary = {
+  incomingKeyName: string;
+  schemaKeyName: string;
+  relationName: string;
+  relationFieldName: string;
+}
+
+const ternaryMapping: Record<string, Array<Ternary>> = {
+  adverseReaction: [
+    {
+      incomingKeyName: 'drugs',
+      schemaKeyName: 'drugs',
+      relationName: 'RelAdverseReactionXDrug',
+      relationFieldName: 'Drug'
+    },
+    {
+      incomingKeyName: 'report',
+      schemaKeyName: 'reportDrugs',
+      relationName: 'RelAdverseReactionXReport',
+      relationFieldName: 'Report'
+    }
+  ],
+  report: [
+    {
+      incomingKeyName: 'drugs',
+      schemaKeyName: 'drugs',
+      relationName: 'RelReportXDrug',
+      relationFieldName: 'Drug'
+    },
+    {
+      incomingKeyName: 'adverseReactions',
+      schemaKeyName: 'adverseReactions',
+      relationName: 'RelAdverseReactionXReport',
+      relationFieldName: 'AdverseReaction'
+    }
+  ]
+}
 
 
 export const getDrugs = async (req: Request, res: Response) => {
   const { item, join, fields, page, pageSize, ...params } = req.query;
+
+  logQuery(item, join, fields, params, page, pageSize);
 
   if (!item || typeof item !== 'string' || !allowedTables.includes(item)) {
     return res.status(400).json({ error: 'Invalid item parameter. Allowed items are: ' + allowedTables.join(', ') });
@@ -57,38 +106,29 @@ export const getDrugs = async (req: Request, res: Response) => {
     }
   });
 
-  /*
-  const allowedItems = allowedTables[item as keyof typeof allowedTables];
-  const invalidItems = Object.keys(params).filter(
-    (key) =>
-      !allowedItems.includes(key) &&
-      !key.startsWith('min') &&
-      !key.startsWith('max')
-  );
-  // if (invalidFields.length > 0) {
-  //   return res.status(400).json({
-  //     error: `Invalid parameters for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedItems.join(', ')}`,
-  //   });
-  // } */
+  const allowedFieldsInTable: Record<string, Array<string>> = {
+    "base": allowedFields[item] || [],
+  };
 
-  const allowedFieldsInTable = allowedFields[item] || [];
-  if (Array.isArray(join)) {
-    join.forEach(j => {
-      const joinName = j.toString().toLowerCase();
-      const joinFields = allowedFields[joinName] || [];
-      joinFields.forEach(f => {
-        allowedFieldsInTable.push(`${j}.${f}`);
-      });
-    })
+  allowedJoins[item].forEach(joinName => {
+    allowedFieldsInTable[joinName] = allowedFields[joinName] || [];
+  })
+
+  // console.dir(allowedFieldsInTable, { depth: null });
+
+  /*
+  const invalidFields = [];
+  for (const field of Object.keys(params)) {
+    if (!allowedFieldsInTable[item].includes(field) && !allowedFieldsInTable.base.includes(field)) {
+      invalidFields.push(field);
+    }
   }
 
-  const invalidFields = allowedFieldsInTable
-    .filter(f => !allowedFieldsInTable.includes(f));
   if (invalidFields.length > 0) {
     return res.status(400).json({
       error: `Invalid fields for ${item}: ${invalidFields.join(', ')}. Allowed fields are: ${allowedFieldsInTable.join(', ')}`,
     });
-  }
+  } */
  
   const fieldList = String(fields).split(',').map(f => f.trim());
  
@@ -106,8 +146,61 @@ export const getDrugs = async (req: Request, res: Response) => {
     });
   }
 
-  const where = buildWhere(item, params, allowedFields[item]);
-  const select = buildSelect(item, joins, fieldList);
+  // separate params that are form ternary relations
+  // first get params keys that have a . and then pick the item behind the .
+  // once that is done we check if the item is in the ternaryMapping
+  let ternaryParams: Record<string, any> = {};
+  let nonTernaryParams: Record<string, any> = {};
+  for (const key in params) {
+    if (key.includes('.')) {
+      const [relation, field] = key.split('.');
+      if (ternaryMapping[item]?.some(t => t.incomingKeyName === relation)) {
+        // this is a ternary relation
+        ternaryParams[key] = params[key];
+      } else {
+        // this is not a ternary relation, remove it from params
+        nonTernaryParams[key] = params[key];
+      }
+    } else {
+      // this is a direct field, keep it in non-ternary params
+      nonTernaryParams[key] = params[key];
+    }
+  }
+  console.log('Ternary Params:', ternaryParams);
+  console.log('Non-Ternary Params:', nonTernaryParams);
+
+  console.log('----------------------------------');
+
+  // separate fields between ternary and non-ternary relations
+  let ternaryFields: string[] = [];
+  let nonTernaryFields: string[] = [];
+  fieldList.forEach(field => {
+    if (field.includes('.')) {
+      const [relation, fieldName] = field.split('.');
+      if (ternaryMapping[item]?.some(t => t.incomingKeyName === relation)) {
+        // this is a ternary relation
+        ternaryFields.push(field);
+      } else {
+        // this is not a ternary relation, remove it from fields
+        nonTernaryFields.push(field);
+      }
+    } else {
+      nonTernaryFields.push(field);
+    }
+  });
+
+  console.log('Ternary Fields:', ternaryFields);
+  console.log('Non-Ternary Fields:', nonTernaryFields); 
+  console.log('----------------------------------');
+
+  // separate joins that are ternary relations
+  const ternaryJoins = joins.filter(j => ternaryMapping[item]?.some(t => t.incomingKeyName === j));
+  const nonTernaryJoins = joins.filter(j => !ternaryMapping[item]?.some(t => t.incomingKeyName === j));
+
+  let where = buildWhere(item, nonTernaryParams, allowedFieldsInTable.base);
+  let select = buildSelect(item, nonTernaryJoins, nonTernaryFields);
+
+
   const skip = (Number(page) - 1) * Number(pageSize);
   try {
     const data = await drugService.getDrugs(item, where, select, Number(pageSize), skip);
@@ -121,27 +214,25 @@ const buildWhere = (item: string, params: any, allowedItems: string[]) => {
   const where: any = {};
   const rangeAllowed = rangeFields[item] || [];
 
-  console.log(params);
-
-  for (const field of allowedItems) {
-    if (rangeAllowed.includes(field) && params[field] !== undefined) {
-      if (field.startsWith('min')) {
-        let fieldName = field.replace('min', '');
-        fieldName = fieldName.charAt(0).toLowerCase() + fieldName.slice(1);
-        where[fieldName] = where[fieldName] || {};
-        where[fieldName].gte = isNaN(params[field]) ? params[field] : Number(params[field]);
-      }
-      if (field.startsWith('max')) {
-        let fieldName = field.replace('max', '');
-        fieldName = fieldName.charAt(0).toLowerCase() + fieldName.slice(1);
-        where[fieldName] = where[fieldName] || {};
-        where[fieldName].lte = isNaN(params[field]) ? params[field] : Number(params[field]);
-      }
-    } else if (params[field]) {
-      where[field] = {
-        contains: params[field],
+  for (const key in params) {
+    if (key.includes('.')) {
+      // Nested filter: e.g., Drug.companyName
+      const [relation, field] = key.split('.');
+      where[relation] = where[relation] || {};
+      where[relation][field] = {
+        contains: params[key],
         mode: 'insensitive'
       };
+    } else if (allowedItems.includes(key)) {
+      // Existing logic for direct fields
+      if (rangeAllowed.includes(key) && params[key] !== undefined) {
+        // ...existing range logic...
+      } else if (params[key]) {
+        where[key] = {
+          contains: params[key],
+          mode: 'insensitive'
+        };
+      }
     }
   }
 
@@ -215,3 +306,26 @@ const buildSelect = (item: string, joins: string[], fields: string[]): any => {
 
   return select;
 };
+
+const buildSelectTernary = (item: string, joins: string[], fields: string[]): any => {
+  const select: any = {};
+
+  select
+
+}
+
+const logQuery = (
+  item: any,
+  join: any,
+  fields: any,
+  params: any,
+  page: any,
+  pageSize: any
+) => {
+  console.log(`Item: ${item}`);
+  console.log(`Join: ${join}`);
+  console.log(`Fields: ${fields}`);
+  console.log(`Params: ${JSON.stringify(params)}`);
+  console.log(`Page: ${page}`);
+  console.log(`Page Size: ${pageSize}`);
+}

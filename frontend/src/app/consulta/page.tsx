@@ -34,7 +34,7 @@ const displayNames: Record<string, string> = {
   "drugCount": "Contagem de Medicamentos",
   "name": "Nome",
   "id": "ID",
-  "reportDrugs": "Medicamento Reportado",
+  "reportDrugs": "Relatório",
   "adverseReactions": "Reação Adversa"
 }
 
@@ -102,7 +102,7 @@ const allowedJoinsPerTable: Record<string, string[]> = {
   report: ["drugs", "adverseReactions"],
   product: ["ActiveIngredient", "Drug"],
   activeIngredient: ["Product"],
-  adverseReaction: ["drugs", "reportDrugs"],
+  adverseReaction: ["drugs", "report"],
   // relAdverseReactionXDrug: ["Drug", "AdverseReaction"],
   // relAdverseReactionXReport: ["Report", "AdverseReaction"],
   // relReportXDrug: ["Report", "Drug"],
@@ -141,7 +141,7 @@ const joinFieldsMap: Record<string, string[]> = {
     "drugId",
   ],
   reportDrugs: ["id", "reportId", "drugId"],
-  Report: [
+  report: [
     "id",
     "occurCountry",
     "transmissionDate",
@@ -462,23 +462,26 @@ export default function DrugSearch() {
                       Consulta Cruzada: <span className="italic">{getDisplayName(join)}</span>
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {joinFields.map((field) => (
-                        <input
-                          key={`${join}.${field}`}
-                          type={
-                            dateFields.has(field)
-                              ? "date"
-                              : numberFields.has(field)
-                                ? "number"
-                                : "text"
-                          }
-                          value={filters[field] || ""}
-                          onChange={(e) => handleChangeFilter(field, e.target.value)}
-                          className="border p-2 rounded w-full"
-                          placeholder={`${getDisplayName(field)}`}
-                          disabled={loading}
-                        />
-                      ))}
+                      {joinFields.map((field) => {
+                        const filterKey = `${join}.${field}`;
+                        return (
+                          <input
+                            key={filterKey}
+                            type={
+                              dateFields.has(field)
+                                ? "date"
+                                : numberFields.has(field)
+                                  ? "number"
+                                  : "text"
+                            }
+                            value={filters[filterKey] || ""}
+                            onChange={(e) => handleChangeFilter(filterKey, e.target.value)}
+                            className="border p-2 rounded w-full"
+                            placeholder={`${getDisplayName(field)}`}
+                            disabled={loading}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );
