@@ -17,6 +17,14 @@ const ternaryTables = [
   'report'
 ]
 
+const numericFields = [
+  'id', 'drugId', 'initialPostingDate',
+  'drugCount', 'patientAge', 'patientWeight', 'transmissionDate',
+  'minInitialPostingDate', 'maxInitialPostingDate',
+  'minTransmissionDate', 'maxTransmissionDate',
+  'minPatientAge', 'maxPatientAge', 'minPatientWeight', 'maxPatientWeight'
+];
+
 const rangeFields: Record<string, string[]> = {
   shortages: ['minInitialPostingDate', 'maxInitialPostingDate'],
   report: ['minTransmissionDate', 'maxTransmissionDate', 'minPatientAge', 'maxPatientAge', 'minPatientWeight', 'maxPatientWeight']
@@ -94,6 +102,8 @@ const ternaryMapping: Record<string, Array<Ternary>> = {
 export const getDrugs = async (req: Request, res: Response) => {
   const { item, join, fields, page, pageSize, ...params } = req.query;
 
+  const queryParams: Record<string, any> = params;
+
   logQuery(item, join, fields, params, page, pageSize);
 
   if (!item || typeof item !== 'string' || !allowedTables.includes(item)) {
@@ -146,24 +156,28 @@ export const getDrugs = async (req: Request, res: Response) => {
     });
   }
 
+  console.log('-----------------------------------');
+  console.log('Query Params:', queryParams);
+  console.log('-----------------------------------');
+
   // separate params that are form ternary relations
   // first get params keys that have a . and then pick the item behind the .
   // once that is done we check if the item is in the ternaryMapping
   let ternaryParams: Record<string, any> = {};
   let nonTernaryParams: Record<string, any> = {};
-  for (const key in params) {
+  for (const key in queryParams) {
     if (key.includes('.')) {
       const [relation, field] = key.split('.');
       if (ternaryMapping[item]?.some(t => t.incomingKeyName === relation)) {
         // this is a ternary relation
-        ternaryParams[key] = params[key];
+        ternaryParams[key] = queryParams[key];
       } else {
         // this is not a ternary relation, remove it from params
-        nonTernaryParams[key] = params[key];
+        nonTernaryParams[key] = queryParams[key];
       }
     } else {
       // this is a direct field, keep it in non-ternary params
-      nonTernaryParams[key] = params[key];
+      nonTernaryParams[key] = queryParams[key];
     }
   }
   console.log('Ternary Params:', ternaryParams);
@@ -200,6 +214,16 @@ export const getDrugs = async (req: Request, res: Response) => {
   let where = buildWhere(item, nonTernaryParams, allowedFieldsInTable.base);
   let select = buildSelect(item, nonTernaryJoins, nonTernaryFields);
 
+  if (ternaryJoins.length > 0) {
+    if (ternaryFields.length > 0) {
+      select = buildSelectTernary(item, ternaryJoins, ternaryFields, select);
+    }
+    if (ternaryParams && Object.keys(ternaryParams).length > 0) {
+      // build where for ternary relations
+      // where
+    }
+  }
+
 
   const skip = (Number(page) - 1) * Number(pageSize);
   try {
@@ -219,19 +243,13 @@ const buildWhere = (item: string, params: any, allowedItems: string[]) => {
       // Nested filter: e.g., Drug.companyName
       const [relation, field] = key.split('.');
       where[relation] = where[relation] || {};
-      where[relation][field] = {
-        contains: params[key],
-        mode: 'insensitive'
-      };
+      where[relation][field] = whereParameters(field, key, params);
     } else if (allowedItems.includes(key)) {
       // Existing logic for direct fields
       if (rangeAllowed.includes(key) && params[key] !== undefined) {
         // ...existing range logic...
       } else if (params[key]) {
-        where[key] = {
-          contains: params[key],
-          mode: 'insensitive'
-        };
+        where[key] = whereParameters(key, key, params);
       }
     }
   }
@@ -307,11 +325,41 @@ const buildSelect = (item: string, joins: string[], fields: string[]): any => {
   return select;
 };
 
-const buildSelectTernary = (item: string, joins: string[], fields: string[]): any => {
-  const select: any = {};
+const buildSelectTernary = (item: string, joins: string[], fields: string[], existingSelect: any): any => {
+  fields.forEach(field => {
+    if (field.includes('.')) { 
+      const [tableName, fieldName] = field.split('.');
+      const ternary = ternaryMapping[item]?.find(t => t.incomingKeyName === tableName);
+      const relationNameSchema = ternary?.schemaKeyName;
+      const relationFieldName = ternary?.relationFieldName;
 
-  select
+      if (relationNameSchema && relationFieldName) {
+        // Ensure the nested structure exists
+        if (!existingSelect[relationNameSchema]) {
+          existingSelect[relationNameSchema] = { select: {} };
+        }
+        if (!existingSelect[relationNameSchema].select[relationFieldName]) {
+          existingSelect[relationNameSchema].select[relationFieldName] = { select: {} };
+        }
+        // Add the field without overwriting others
+        existingSelect[relationNameSchema].select[relationFieldName].select[fieldName] = true;
+      }
+    }
+  });
+  return existingSelect;
+}
 
+const whereParameters = (field: string, key: string, params: Record<string, any>): any => {
+  if(numericFields.includes(field)) {
+    return {
+      equals: Number(params[key]),
+    }
+  } else {
+    return {
+      contains: params[key],
+      mode: 'insensitive'
+    }
+  }
 }
 
 const logQuery = (
