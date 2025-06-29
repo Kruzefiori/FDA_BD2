@@ -33,14 +33,32 @@ const displayNames: Record<string, string> = {
   "strength": "Concentração",
   "drugCount": "Contagem de Medicamentos",
   "name": "Nome",
-  "id": "ID"
+  "id": "ID",
+  "reportDrugs": "Medicamento Reportado",
+  "adverseReactions": "Reação Adversa"
 }
 
 const getDisplayName = (key: string): string => {
+  if (key.includes(".")) {
+    const [join, field] = key.split(".");
+    const joinName = displayNames[toCamelCase(join)] || toCamelCase(join);
+    const fieldName = displayNames[toCamelCase(field)] || toCamelCase(field);
+    return `${joinName} - ${fieldName}`;
+  }
   const found = Object.entries(displayNames).find(
     ([k]) => k.toLowerCase() === key.toLowerCase()
   );
   return found ? found[1] : key + "No String";
+}
+
+const toCamelCase = (str: string): string => {
+  return str
+    .replace(/([a-z])([A-Z])/g, "$1 $2") // Add space before uppercase letters
+    .split(" ")
+    .map((word, index) =>
+      index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join("");
 }
 
 const allowedTables: Record<string, string[]> = {
@@ -79,7 +97,7 @@ const allowedTables: Record<string, string[]> = {
 
 const allowedJoinsPerTable: Record<string, string[]> = {
   shortages: ["Drug"],
-  company: ["Drugs"],
+  company: [],
   drug: ["Company", "Shortages"],
   report: ["drugs", "adverseReactions"],
   product: ["ActiveIngredient", "Drug"],
@@ -146,6 +164,7 @@ export default function DrugSearch() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20)
   const [paginationEnabled, setPaginationEnabled] = useState(true);
 
   // Atualiza campos para mostrar com prefixo join quando necessário
@@ -209,6 +228,11 @@ export default function DrugSearch() {
       .map(([field]) => field);
     if (selectedFields.length > 0) {
       params.append("fields", selectedFields.join(","));
+    }
+    // Add paging parameters
+    if (paginationEnabled) {
+      params.append("page", String(page));
+      params.append("pageSize", String(pageSize));
     }
     return params.toString();
   };
@@ -288,9 +312,11 @@ export default function DrugSearch() {
   };
 
   const totalPages = Math.ceil(results.length / PAGE_SIZE);
+  const currentPageResults = results;
+  /* Remove a lógica de paging no frontend
   const currentPageResults = paginationEnabled
     ? results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    : results;
+    : results; */
 
   // Função para ordenar com rel* no final
   function sortTables(tables: string[]) {
@@ -336,14 +362,45 @@ export default function DrugSearch() {
               onChange={handleTogglePagination}
               disabled={loading}
             />
-            <span>Ativar paginação (200 resultados por página)</span>
+            <span>Ativar paginação</span>
           </label>
+          {paginationEnabled && (
+            <>
+              <label className="flex items-center gap-1">
+                Resultados por página:
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={pageSize}
+                  onChange={e => {
+                    const val = Math.max(1, Math.min(100, Number(e.target.value)));
+                    setPageSize(val);
+                    setPage(1); // Reset to first page if page size changes
+                  }}
+                  className="border rounded p-1 w-16"
+                  disabled={loading}
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                Página:
+                <input
+                  type="number"
+                  min={1}
+                  value={page}
+                  onChange={e => setPage(Math.max(1, Number(e.target.value)))}
+                  className="border rounded p-1 w-16"
+                  disabled={loading}
+                />
+              </label>
+            </>
+          )}
         </div>
 
         {/* Joins disponíveis */}
         {item && (
           <div>
-            <strong className="block mb-2">Pesquisas Cruzada Disponíveis:</strong>
+            <strong className="block mb-2">Pesquisas Cruzadas Disponíveis:</strong>
             <div className="flex flex-wrap gap-4">
               {(allowedJoinsPerTable[item] || []).map((join) => (
                 <label
@@ -402,7 +459,7 @@ export default function DrugSearch() {
                 return (
                   <div key={join}>
                     <p className="font-semibold mb-2">
-                      Join: <span className="italic">{join}</span>
+                      Consulta Cruzada: <span className="italic">{getDisplayName(join)}</span>
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {joinFields.map((field) => (

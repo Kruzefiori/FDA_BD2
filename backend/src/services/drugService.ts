@@ -3,22 +3,14 @@ import prisma from '../prisma/client';
 export async function getDrugs(
   item: string,
   where: any,
-  include: any,
-  select: Record<string, boolean>
+  select: any,
+  take: number = 100,
+  skip: number = 0
 ) {
 
-  let query: any = { where }
-  if (select && Object.keys(select).length > 0) {
-    query.select = select;
-  } else if (include && Object.keys(include).length > 0) {
-    query.include = include;
-  }
-  console.log({
-    item,
-    where,
-    include,
-    select
-  })
+  let query: any = { where, select, take, skip };
+  console.dir(query, { depth: null });
+
   switch(item) {
     case 'drug':
       return prisma.drug.findMany(query);
