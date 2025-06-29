@@ -11,6 +11,11 @@ export async function getDrugs(
   let query: any = { where, select, take, skip };
   console.dir(query, { depth: null });
 
+  if (isNaN(take) || isNaN(skip)) {
+    query.take = 100; // Default take
+    query.skip = 0; // Default skip
+  }
+
   switch(item) {
     case 'drug':
       return prisma.drug.findMany(query);

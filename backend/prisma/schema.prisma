@@ -5,7 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://unifei:unifei@56.125.32.98:5433/FDA_database"
+  url = "postgresql://unifei:unifei@db:5432/FDA_database"
+  // url      = "postgresql://unifei:unifei@56.125.32.98:5433/FDA_database"
 }
 
 enum Role {

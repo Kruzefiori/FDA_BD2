@@ -5,6 +5,7 @@ import { activeIngredientMapping } from '../mappings/activeIngredientMapping';
 import { adverseReactionMapping } from '../mappings/adverseReactionMapping';
 import { productMapping } from '../mappings/productMapping';
 import { reportMapping } from '../mappings/reportMapping';
+import { shortageMapping } from '../mappings/shortageMapping';
 
 const allowedTables = [
   'shortages', 
@@ -56,6 +57,8 @@ const allowedFields: Record<string, string[]> = {
   AdverseReaction: ['name'],
   adverseReactions: ['name'],
   drugs: ['id', 'companyName', 'drugName'],
+  // Alternate name  
+  Drug: ['id', 'companyName', 'drugName'],
   Product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
 };
 
@@ -406,6 +409,8 @@ const mapOutput = (item: string, data: any): any => {
     return productMapping(data);
   } else if (item === 'report' && Array.isArray(data)) {
     return reportMapping(data);
+  } else if (item === 'shortages' && Array.isArray(data)) {
+    return shortageMapping(data);
   }
 
   return data;

@@ -95,7 +95,7 @@ const allowedTables: Record<string, string[]> = {
 const allowedJoinsPerTable: Record<string, string[]> = {
   shortages: ["Drug"],
   company: ["Drug"],
-  drug: ["AdverseReaction", "report"],
+  drug: ["AdverseReaction"],
   report: ["drugs", "adverseReactions"],
   product: ["Drug"],
   activeIngredient: ["Product"],
