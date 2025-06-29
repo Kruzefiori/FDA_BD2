@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import * as drugService from '../services/drugService';
 import { ParsedQs } from 'qs';
+import { format } from 'path';
+import { adverseReactionMapping } from '../mappings/adverseReactionMapping';
+import { reportMapping } from '../mappings/reportMapping';
 
 const allowedTables = [
   'shortages', 
@@ -96,6 +99,11 @@ const ternaryMapping: Record<string, Array<Ternary>> = {
       relationFieldName: 'AdverseReaction'
     }
   ]
+}
+
+const ternaryUpMapping: Record<string, string[]> = {
+  'report': ['drugs', 'adverseReactions'],
+  'adverseReaction': ['drugs', 'reportDrugs'],
 }
 
 
@@ -219,15 +227,18 @@ export const getDrugs = async (req: Request, res: Response) => {
       select = buildSelectTernary(item, ternaryJoins, ternaryFields, select);
     }
     if (ternaryParams && Object.keys(ternaryParams).length > 0) {
-      // build where for ternary relations
-      // where
+      where = buildWhereTernary(item, ternaryParams, where);
     }
   }
 
 
   const skip = (Number(page) - 1) * Number(pageSize);
   try {
-    const data = await drugService.getDrugs(item, where, select, Number(pageSize), skip);
+    let data = await drugService.getDrugs(item, where, select, Number(pageSize), skip);
+    console.dir(data, { depth: null });
+    console.log('----------------------------------');
+    data = mapOutput(item, data);
+    console.dir(data, { depth: null });
     res.status(200).json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -256,6 +267,35 @@ const buildWhere = (item: string, params: any, allowedItems: string[]) => {
 
   return where;
 };
+
+const buildWhereTernary = (item: string, params: any, existingWhere: any) => {
+  for (const key in params) {
+    if (key.includes('.')) {
+      const [relation, field] = key.split('.');
+      const ternary = ternaryMapping[item]?.find(t => t.incomingKeyName === relation);
+      const relationNameSchema = ternary?.schemaKeyName;
+      const relationFieldName = ternary?.relationFieldName;
+
+      if (relationNameSchema && relationFieldName) {
+        // Ensure the nested structure exists
+        if (!existingWhere[relationNameSchema]) {
+          existingWhere[relationNameSchema] = {};
+        }
+        // Wrap the nested filter in 'some'
+        if (!existingWhere[relationNameSchema]['every']) {
+          existingWhere[relationNameSchema]['every'] = {};
+        }
+        if (!existingWhere[relationNameSchema]['every'][relationFieldName]) {
+          existingWhere[relationNameSchema]['every'][relationFieldName] = {};
+        }
+        // Add the field without overwriting others
+        existingWhere[relationNameSchema]['every'][relationFieldName][field] = whereParameters(field, key, params);
+      }
+    }
+  }
+
+  return existingWhere
+}
 
 const buildSelect = (item: string, joins: string[], fields: string[]): any => {
   const select: any = {};
@@ -361,6 +401,17 @@ const whereParameters = (field: string, key: string, params: Record<string, any>
     }
   }
 }
+
+const mapOutput = (item: string, data: any): any => {
+  if (item === 'adverseReaction' && Array.isArray(data)) {
+    return adverseReactionMapping(data);
+  } else if (item === 'report' && Array.isArray(data)) {
+    return reportMapping(data);
+  }
+
+  return data;
+}
+
 
 const logQuery = (
   item: any,

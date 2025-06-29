@@ -585,14 +585,7 @@ export default function DrugSearch() {
                     {Object.entries(fieldsToShow)
                       .filter(([_, checked]) => checked)
                       .map(([col]) => {
-                        const [joinMaybe, field] = col.includes(".")
-                          ? col.split(".")
-                          : [null, col];
-
-                        const value = joinMaybe
-                          ? row[joinMaybe]?.[field]
-                          : row[field];
-
+                        const value = row[col]; // <-- Direct access for flattened data
                         if (value === null || value === undefined)
                           return <td key={col}></td>;
 
