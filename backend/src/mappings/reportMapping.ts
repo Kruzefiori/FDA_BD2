@@ -10,9 +10,9 @@ export const reportMapping = (data: Array<any>): any => {
       drugs.forEach((drug: any) => {
         output.push({
           ...baseFields(report),
-          "drug.drugId": drug.Drug?.id ?? undefined,
-          "drug.drugName": drug.Drug?.drugName ?? undefined,
-          "drug.companyName": drug.Drug?.companyName ?? undefined,
+          "drugs.drugId": drug.Drug?.id ?? undefined,
+          "drugs.drugName": drug.Drug?.drugName ?? undefined,
+          "drugs.companyName": drug.Drug?.companyName ?? undefined,
           "adverseReactions.name": adverseReactionsFullString ?? undefined,
         });
       });

@@ -13,7 +13,7 @@ const displayNames: Record<string, string> = {
   "drug": "Medicamento",
   "drugs": "Medicamento",
   "product": "Produto",
-  "report": "Relatório de Reações Adversas",
+  "report": "Reações Adversas",
   "shortages": "Escassez de Medicamentos",
   "dosageForm": "Forma Farmacêutica",
   "presentation": "Apresentação",
@@ -71,7 +71,7 @@ const allowedTables: Record<string, string[]> = {
     "presentation",
   ],
   company: ["name", "drugCount"],
-  adverseReaction: ["name"],
+  // adverseReaction: ["name"],
   report: [
     "id",
     "occurCountry",
@@ -89,23 +89,17 @@ const allowedTables: Record<string, string[]> = {
     "route",
     "drugId",
   ],
-  // relAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
-  // relAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
-  // relReportXDrug: ["id", "reportId", "drugId"],
   drug: ["id", "companyName", "drugName"],
 };
 
 const allowedJoinsPerTable: Record<string, string[]> = {
   shortages: ["Drug"],
-  company: [],
-  drug: ["Company", "Shortages"],
+  company: ["Drug"],
+  drug: ["AdverseReaction", "report"],
   report: ["drugs", "adverseReactions"],
-  product: ["ActiveIngredient", "Drug"],
+  product: ["Drug"],
   activeIngredient: ["Product"],
   adverseReaction: ["drugs", "report"],
-  // relAdverseReactionXDrug: ["Drug", "AdverseReaction"],
-  // relAdverseReactionXReport: ["Report", "AdverseReaction"],
-  // relReportXDrug: ["Report", "Drug"],
 };
 
 const joinFieldsMap: Record<string, string[]> = {
@@ -119,16 +113,6 @@ const joinFieldsMap: Record<string, string[]> = {
     "initialPostingDate",
     "presentation",
   ],
-  /* RelActiveIngredientXDrug: [
-    "id",
-    "activeIngredientName",
-    "activeIngredientStrength",
-    "dosageForm",
-    "route",
-    "drugId",
-  ], */
-  // RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
-  // RelReportXDrug: ["id", "reportId", "drugId"],
   drugs: ["id", "companyName", "drugName"],
   adverseReactions: ["name"],
   ActiveIngredient: ["name", "strength"],

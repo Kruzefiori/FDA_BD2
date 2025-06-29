@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import * as drugService from '../services/drugService';
 import { ParsedQs } from 'qs';
-import { format } from 'path';
+import { activeIngredientMapping } from '../mappings/activeIngredientMapping';
 import { adverseReactionMapping } from '../mappings/adverseReactionMapping';
+import { productMapping } from '../mappings/productMapping';
 import { reportMapping } from '../mappings/reportMapping';
 
 const allowedTables = [
@@ -34,16 +35,13 @@ const rangeFields: Record<string, string[]> = {
 };
 
 const allowedJoins: Record<string, string[]> = {
-  company: [],
-  drug: ['Company', 'Shortages'],
+  company: ['drug'],
+  drug: ['AdverseReaction', 'report'],
   report: ['drugs', 'adverseReactions'],
   product: ['ActiveIngredient', 'Drug'],
   activeIngredient: ['Product'],
   adverseReaction: ['drugs', 'report'],
-  shortages: ['Drug'],
-  // relAdverseReactionXDrug: ['Drug', 'AdverseReaction'],
-  // relAdverseReactionXReport: ['Report', 'AdverseReaction'],
-  // relReportXDrug: ['Report', 'Drug'],
+  shortages: ['Drug']
 };
 
 const allowedFields: Record<string, string[]> = {
@@ -53,11 +51,9 @@ const allowedFields: Record<string, string[]> = {
   report: ['id', 'occurCountry', 'transmissionDate', 'patientAge', 'patientGender', 'patientWeight'],
   activeIngredient: ['name', 'strength'],
   product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
-  // relAdverseReactionXDrug: ['id', 'drugName', 'adverseReaction'],
-  // relAdverseReactionXReport: ['id', 'reportId', 'adverseReaction'],
-  // relReportXDrug: ['id', 'reportId', 'drugId'],
   drug: ['id', 'companyName', 'drugName'],
   // plural
+  AdverseReaction: ['name'],
   adverseReactions: ['name'],
   drugs: ['id', 'companyName', 'drugName'],
   Product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
@@ -85,6 +81,20 @@ const ternaryMapping: Record<string, Array<Ternary>> = {
       relationFieldName: 'Report'
     }
   ],
+  drug: [
+    {
+      incomingKeyName: 'AdverseReaction',
+      schemaKeyName: 'RelAdverseReactionXDrug',
+      relationName: 'RelAdverseReactionXDrug',
+      relationFieldName: 'AdverseReaction'
+    },
+    {
+      incomingKeyName: 'report',
+      schemaKeyName: 'RelReportXDrug',
+      relationName: 'RelReportXDrug',
+      relationFieldName: 'Report'
+    }
+  ],
   report: [
     {
       incomingKeyName: 'drugs',
@@ -100,12 +110,6 @@ const ternaryMapping: Record<string, Array<Ternary>> = {
     }
   ]
 }
-
-const ternaryUpMapping: Record<string, string[]> = {
-  'report': ['drugs', 'adverseReactions'],
-  'adverseReaction': ['drugs', 'reportDrugs'],
-}
-
 
 export const getDrugs = async (req: Request, res: Response) => {
   const { item, join, fields, page, pageSize, ...params } = req.query;
@@ -188,10 +192,6 @@ export const getDrugs = async (req: Request, res: Response) => {
       nonTernaryParams[key] = queryParams[key];
     }
   }
-  console.log('Ternary Params:', ternaryParams);
-  console.log('Non-Ternary Params:', nonTernaryParams);
-
-  console.log('----------------------------------');
 
   // separate fields between ternary and non-ternary relations
   let ternaryFields: string[] = [];
@@ -211,10 +211,6 @@ export const getDrugs = async (req: Request, res: Response) => {
     }
   });
 
-  console.log('Ternary Fields:', ternaryFields);
-  console.log('Non-Ternary Fields:', nonTernaryFields); 
-  console.log('----------------------------------');
-
   // separate joins that are ternary relations
   const ternaryJoins = joins.filter(j => ternaryMapping[item]?.some(t => t.incomingKeyName === j));
   const nonTernaryJoins = joins.filter(j => !ternaryMapping[item]?.some(t => t.incomingKeyName === j));
@@ -230,7 +226,6 @@ export const getDrugs = async (req: Request, res: Response) => {
       where = buildWhereTernary(item, ternaryParams, where);
     }
   }
-
 
   const skip = (Number(page) - 1) * Number(pageSize);
   try {
@@ -403,15 +398,18 @@ const whereParameters = (field: string, key: string, params: Record<string, any>
 }
 
 const mapOutput = (item: string, data: any): any => {
-  if (item === 'adverseReaction' && Array.isArray(data)) {
+  if (item === 'activeIngredient' && Array.isArray(data)) {
+    return activeIngredientMapping(data);
+  } else if (item === 'adverseReaction' && Array.isArray(data)) {
     return adverseReactionMapping(data);
+  } else if (item === 'product' && Array.isArray(data)) {
+    return productMapping(data);
   } else if (item === 'report' && Array.isArray(data)) {
     return reportMapping(data);
   }
 
   return data;
 }
-
 
 const logQuery = (
   item: any,
