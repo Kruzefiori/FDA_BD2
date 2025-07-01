@@ -7,36 +7,36 @@ import DynamicChart from "../components/DynamicChart";
 const PAGE_SIZE = 200;
 
 const displayNames: Record<string, string> = {
-  "activeIngredient": "Ingrediente Ativo",
-  "adverseReaction": "Reação Adversa",
-  "company": "Empresa",
-  "drug": "Medicamento",
-  "drugs": "Medicamento",
-  "product": "Produto",
-  "report": "Reações Adversas",
-  "shortages": "Escassez de Medicamentos",
-  "dosageForm": "Forma Farmacêutica",
-  "presentation": "Apresentação",
-  "route": "Via de Administração",
-  "drugId": "ID do Medicamento",
-  "drugName": "Nome do Medicamento",
-  "companyName": "Nome da Empresa",
-  "description": "Descrição",
-  "initialPostingDate": "Data de Publicação Inicial",
-  "occurCountry": "País de Ocorrência",
-  "transmissionDate": "Data de Transmissão",
-  "patientAge": "Idade do Paciente",
-  "patientGender": "Gênero do Paciente",
-  "patientWeight": "Peso do Paciente",
-  "activeIngredientName": "Nome do Ingrediente Ativo",
-  "activeIngredientStrength": "Concentração do Ingrediente Ativo",
-  "strength": "Concentração",
-  "drugCount": "Contagem de Medicamentos",
-  "name": "Nome",
-  "id": "ID",
-  "reportDrugs": "Relatório",
-  "adverseReactions": "Reação Adversa"
-}
+  activeIngredient: "Ingrediente Ativo",
+  adverseReaction: "Reação Adversa",
+  company: "Empresa",
+  drug: "Medicamento",
+  drugs: "Medicamento",
+  product: "Produto",
+  report: "Reações Adversas",
+  shortages: "Escassez de Medicamentos",
+  dosageForm: "Forma Farmacêutica",
+  presentation: "Apresentação",
+  route: "Via de Administração",
+  drugId: "ID do Medicamento",
+  drugName: "Nome do Medicamento",
+  companyName: "Nome da Empresa",
+  description: "Descrição",
+  initialPostingDate: "Data de Publicação Inicial",
+  occurCountry: "País de Ocorrência",
+  transmissionDate: "Data de Transmissão",
+  patientAge: "Idade do Paciente",
+  patientGender: "Gênero do Paciente",
+  patientWeight: "Peso do Paciente",
+  activeIngredientName: "Nome do Ingrediente Ativo",
+  activeIngredientStrength: "Concentração do Ingrediente Ativo",
+  strength: "Concentração",
+  drugCount: "Contagem de Medicamentos",
+  name: "Nome",
+  id: "ID",
+  reportDrugs: "Relatório",
+  adverseReactions: "Reação Adversa",
+};
 
 const getDisplayName = (key: string): string => {
   if (key.includes(".")) {
@@ -49,17 +49,19 @@ const getDisplayName = (key: string): string => {
     ([k]) => k.toLowerCase() === key.toLowerCase()
   );
   return found ? found[1] : key + "No String";
-}
+};
 
 const toCamelCase = (str: string): string => {
   return str
     .replace(/([a-z])([A-Z])/g, "$1 $2") // Add space before uppercase letters
     .split(" ")
     .map((word, index) =>
-      index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1)
+      index === 0
+        ? word.toLowerCase()
+        : word.charAt(0).toUpperCase() + word.slice(1)
     )
     .join("");
-}
+};
 
 const allowedTables: Record<string, string[]> = {
   shortages: [
@@ -139,16 +141,28 @@ const joinFieldsMap: Record<string, string[]> = {
 const dateFields = new Set(["initialPostingDate", "transmissionDate"]);
 const numberFields = new Set(["patientAge", "patientWeight", "drugCount"]);
 
+const operatorOptions = [
+  { value: "equals", label: "=" },
+  { value: "contains", label: "Contém" },
+  { value: "startsWith", label: "Começa com" },
+  { value: "endsWith", label: "Termina com" },
+  { value: "gt", label: ">" },
+  { value: "gte", label: "≥" },
+  { value: "lt", label: "<" },
+  { value: "lte", label: "≤" },
+];
+
 export default function DrugSearch() {
   const [item, setItem] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filterOps, setFilterOps] = useState<Record<string, string>>({});
   const [joins, setJoins] = useState<string[]>([]);
   const [fieldsToShow, setFieldsToShow] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20);
   const [paginationEnabled, setPaginationEnabled] = useState(true);
 
   // Atualiza campos para mostrar com prefixo join quando necessário
@@ -173,10 +187,14 @@ export default function DrugSearch() {
 
   useEffect(() => {
     setPage(1);
-  }, [item, joins, filters, paginationEnabled]);
+  }, [item, joins, filters, filterOps, paginationEnabled]);
 
   const handleChangeFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleChangeOp = (key: string, op: string) => {
+    setFilterOps((prev) => ({ ...prev, [key]: op }));
   };
 
   const handleToggleJoin = (join: string) => {
@@ -205,6 +223,8 @@ export default function DrugSearch() {
     for (const key in filters) {
       if (filters[key]) {
         params.append(key, filters[key]);
+        const op = filterOps[key] || (numberFields.has(key.split(".").pop()!) ? "equals" : "contains");
+        params.append(`${key}__op`, op);
       }
     }
     const selectedFields = Object.entries(fieldsToShow)
@@ -297,10 +317,6 @@ export default function DrugSearch() {
 
   const totalPages = Math.ceil(results.length / PAGE_SIZE);
   const currentPageResults = results;
-  /* Remove a lógica de paging no frontend
-  const currentPageResults = paginationEnabled
-    ? results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    : results; */
 
   // Função para ordenar com rel* no final
   function sortTables(tables: string[]) {
@@ -321,6 +337,7 @@ export default function DrugSearch() {
             onChange={(e) => {
               setItem(e.target.value);
               setFilters({});
+              setFilterOps({});
               setJoins([]);
               setResults([]);
               setPage(1);
@@ -357,7 +374,7 @@ export default function DrugSearch() {
                   min={1}
                   max={100}
                   value={pageSize}
-                  onChange={e => {
+                  onChange={(e) => {
                     const val = Math.max(1, Math.min(100, Number(e.target.value)));
                     setPageSize(val);
                     setPage(1); // Reset to first page if page size changes
@@ -372,7 +389,7 @@ export default function DrugSearch() {
                   type="number"
                   min={1}
                   value={page}
-                  onChange={e => setPage(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => setPage(Math.max(1, Number(e.target.value)))}
                   className="border rounded p-1 w-16"
                   disabled={loading}
                 />
@@ -415,23 +432,39 @@ export default function DrugSearch() {
                   Pesquisa principal: <span className="italic">{displayNames[item] || item}</span>
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(allowedTables[item] || []).map((field) => (
-                    <input
-                      key={field}
-                      type={
-                        dateFields.has(field)
-                          ? "date"
-                          : numberFields.has(field)
-                            ? "number"
-                            : "text"
-                      }
-                      value={filters[field] || ""}
-                      onChange={(e) => handleChangeFilter(field, e.target.value)}
-                      className="border p-2 rounded w-full"
-                      placeholder={`${getDisplayName(field)}`}
-                      disabled={loading}
-                    />
-                  ))}
+                  {(allowedTables[item] || []).map((field) => {
+                    const key = field;
+                    return (
+                      <div key={key} className="flex gap-2">
+                        <input
+                          type={
+                            dateFields.has(field)
+                              ? "date"
+                              : numberFields.has(field)
+                                ? "number"
+                                : "text"
+                          }
+                          value={filters[key] || ""}
+                          onChange={(e) => handleChangeFilter(key, e.target.value)}
+                          className="border p-2 rounded flex-1"
+                          placeholder={`${getDisplayName(field)}`}
+                          disabled={loading}
+                        />
+                        <select
+                          value={filterOps[key] || "contains"}
+                          onChange={(e) => handleChangeOp(key, e.target.value)}
+                          className="border p-2 rounded w-28"
+                          disabled={loading}
+                        >
+                          {operatorOptions.map((op) => (
+                            <option key={op.value} value={op.value}>
+                              {op.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -449,21 +482,36 @@ export default function DrugSearch() {
                       {joinFields.map((field) => {
                         const filterKey = `${join}.${field}`;
                         return (
-                          <input
-                            key={filterKey}
-                            type={
-                              dateFields.has(field)
-                                ? "date"
-                                : numberFields.has(field)
-                                  ? "number"
-                                  : "text"
-                            }
-                            value={filters[filterKey] || ""}
-                            onChange={(e) => handleChangeFilter(filterKey, e.target.value)}
-                            className="border p-2 rounded w-full"
-                            placeholder={`${getDisplayName(field)}`}
-                            disabled={loading}
-                          />
+                          <div key={filterKey} className="flex gap-2">
+                            <input
+                              type={
+                                dateFields.has(field)
+                                  ? "date"
+                                  : numberFields.has(field)
+                                    ? "number"
+                                    : "text"
+                              }
+                              value={filters[filterKey] || ""}
+                              onChange={(e) =>
+                                handleChangeFilter(filterKey, e.target.value)
+                              }
+                              className="border p-2 rounded flex-1"
+                              placeholder={`${getDisplayName(field)}`}
+                              disabled={loading}
+                            />
+                            <select
+                              value={filterOps[filterKey] || "contains"}
+                              onChange={(e) => handleChangeOp(filterKey, e.target.value)}
+                              className="border p-2 rounded w-28"
+                              disabled={loading}
+                            >
+                              {operatorOptions.map((op) => (
+                                <option key={op.value} value={op.value}>
+                                  {op.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         );
                       })}
                     </div>
@@ -502,108 +550,77 @@ export default function DrugSearch() {
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded disabled:opacity-50"
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded"
           >
             {loading ? "Buscando..." : "Buscar"}
           </button>
-
           <button
             onClick={exportToCSV}
-            disabled={results.length === 0}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+            disabled={loading || results.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded"
           >
             Exportar CSV
           </button>
         </div>
 
-        {/* Paginação */}
-        {paginationEnabled && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1 || loading}
-              className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <span>
-              Página {page} de {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages || loading}
-              className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Próximo
-            </button>
-          </div>
-        )}
-
-        {/* Mensagem de erro */}
-        {error && <p className="mt-4 text-red-600 font-semibold">{error}</p>}
-
         {/* Resultados */}
-        {currentPageResults.length > 0 && (
-          <div className="overflow-auto mt-6">
-            <table className="w-full border-collapse border border-gray-300 text-gray-900">
+        <div className="overflow-auto max-h-[400px] border rounded p-2 bg-white text-black">
+          {error && (
+            <div className="bg-red-100 text-red-700 p-2 rounded mb-2">{error}</div>
+          )}
+
+          {!error && results.length === 0 && !loading && (
+            <div>Nenhum resultado para exibir.</div>
+          )}
+
+          {results.length > 0 && (
+            <table className="min-w-full border-collapse border border-gray-300">
               <thead>
-                <tr className="bg-gray-200">
+                <tr>
                   {Object.entries(fieldsToShow)
-                    .filter(([_, checked]) => checked)
-                    .map(([col]) => (
+                    .filter(([, checked]) => checked)
+                    .map(([field]) => (
                       <th
-                        key={col}
-                        className="border border-gray-300 p-2 text-left"
+                        key={field}
+                        className="border border-gray-300 p-1 text-left bg-gray-200"
                       >
-                        {col}
+                        {getDisplayName(field)}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody>
-                {currentPageResults.map((row, i) => (
+                {currentPageResults.map((row, idx) => (
                   <tr
-                    key={i}
-                    className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                    key={idx}
+                    className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                   >
                     {Object.entries(fieldsToShow)
-                      .filter(([_, checked]) => checked)
-                      .map(([col]) => {
-                        const value = row[col]; // <-- Direct access for flattened data
-                        if (value === null || value === undefined)
-                          return <td key={col}></td>;
-
-                        if (typeof value === "object")
-                          return <td key={col}>{JSON.stringify(value)}</td>;
-
-                        return <td key={col}>{String(value)}</td>;
+                      .filter(([, checked]) => checked)
+                      .map(([field]) => {
+                        const [joinMaybe, fieldName] = field.includes(".")
+                          ? field.split(".")
+                          : [null, field];
+                        let val = joinMaybe ? row[joinMaybe]?.[fieldName] : row[fieldName];
+                        if (val === null || val === undefined) return <td key={field}></td>;
+                        if (typeof val === "object") val = JSON.stringify(val);
+                        return (
+                          <td key={field} className="border border-gray-300 p-1">
+                            {val}
+                          </td>
+                        );
                       })}
                   </tr>
                 ))}
               </tbody>
             </table>
-            <DynamicChart data={currentPageResults} fieldsToShow={fieldsToShow} />
+          )}
+        </div>
 
-            <footer className="mt-12 text-center text-sm text-gray-500 border-t pt-4">
-              <p>
-                <strong>
-                  Do not rely on openFDA to make decisions regarding medical care.
-                  Consult a specialized doctor.
-                </strong>
-                <br />
-                <em>
-                  Não confie no openFDA para tomar decisões relacionadas a cuidados
-                  médicos. Consulte um médico especializado.
-                </em>
-              </p>
-            </footer>
-          </div>
-        )}
-
-        {results.length === 0 && !loading && (
-          <p className="mt-4 text-gray-600">Nenhum resultado para exibir.</p>
-        )}
-      </div>
+        {/* Gráfico dinâmico */}
+        {item === "company" && (
+          <DynamicChart data={currentPageResults} fieldsToShow={fieldsToShow} />
+        )}      </div>
     </PageLayout>
   );
 }
