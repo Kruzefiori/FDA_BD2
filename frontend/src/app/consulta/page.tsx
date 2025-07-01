@@ -10,10 +10,9 @@ const displayNames: Record<string, string> = {
   activeIngredient: "Ingrediente Ativo",
   adverseReaction: "Reação Adversa",
   company: "Empresa",
-  drug: "Medicamento",
-  drugs: "Medicamento",
+  Drugs: "Medicamento",
   product: "Produto",
-  report: "Reações Adversas",
+  report: "Reporte",
   shortages: "Escassez de Medicamentos",
   dosageForm: "Forma Farmacêutica",
   presentation: "Apresentação",
@@ -73,7 +72,7 @@ const allowedTables: Record<string, string[]> = {
     "presentation",
   ],
   company: ["name", "drugCount"],
-  // adverseReaction: ["name"],
+  adverseReaction: ["name"],
   report: [
     "id",
     "occurCountry",
@@ -91,65 +90,45 @@ const allowedTables: Record<string, string[]> = {
     "route",
     "drugId",
   ],
-  drug: ["id", "companyName", "drugName"],
+  Drugs: ["id", "companyName", "drugName"],
 };
 
 const allowedJoinsPerTable: Record<string, string[]> = {
-  shortages: ["Drug"],
-  company: ["Drug"],
-  drug: ["AdverseReaction"],
-  report: ["drugs", "adverseReactions"],
-  product: ["Drug"],
+  shortages: ["Drugs"],
+  company: ["Drugs"],
+  Drugs: ["AdverseReaction"],
+  report: ["Drugs", "adverseReactions"],
+  product: ["Drugs"],
   activeIngredient: ["Product"],
-  adverseReaction: ["drugs", "report"],
+  adverseReaction: ["Drugs", "report"],
 };
 
 const joinFieldsMap: Record<string, string[]> = {
   Drug: ["id", "companyName", "drugName"],
-  Drugs: ["id", "companyName", "drugName"],
   Company: ["name", "drugCount"],
-  Shortages: [
-    "id",
-    "dosageForm",
-    "description",
-    "initialPostingDate",
-    "presentation",
-  ],
-  drugs: ["id", "companyName", "drugName"],
-  adverseReactions: ["name"],
+  Shortages: ["id", "dosageForm", "description", "initialPostingDate", "presentation"],
+  Drugs: ["id", "companyName", "drugName"], // este é o correto no schema
   ActiveIngredient: ["name", "strength"],
-  Product: [
-    "id",
-    "activeIngredientName",
-    "activeIngredientStrength",
-    "dosageForm",
-    "route",
-    "drugId",
-  ],
-  reportDrugs: ["id", "reportId", "drugId"],
-  report: [
-    "id",
-    "occurCountry",
-    "transmissionDate",
-    "patientAge",
-    "patientGender",
-    "patientWeight",
-  ],
+  Product: ["id", "activeIngredientName", "activeIngredientStrength", "dosageForm", "route", "drugId"],
+  Report: ["id", "occurCountry", "transmissionDate", "patientAge", "patientGender", "patientWeight"],
   AdverseReaction: ["name"],
+  RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
+  RelAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
+  RelReportXDrug: ["id", "reportId", "drugId"],
 };
 
 const dateFields = new Set(["initialPostingDate", "transmissionDate"]);
 const numberFields = new Set(["patientAge", "patientWeight", "drugCount"]);
 
 const operatorOptions = [
-  { value: "equals", label: "=" },
+  { value: "equals", label: "igual a" },
   { value: "contains", label: "Contém" },
   { value: "startsWith", label: "Começa com" },
   { value: "endsWith", label: "Termina com" },
-  { value: "gt", label: ">" },
-  { value: "gte", label: "≥" },
-  { value: "lt", label: "<" },
-  { value: "lte", label: "≤" },
+  { value: "gt", label: "Maior que" },
+  { value: "gte", label: "Maior ou igual a" },
+  { value: "lt", label: "Menor que" },
+  { value: "lte", label: "Menor ou igual a" },
 ];
 
 export default function DrugSearch() {
