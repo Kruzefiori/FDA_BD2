@@ -159,14 +159,14 @@ const dateFields = new Set(["initialPostingDate", "transmissionDate"]);
 const numberFields = new Set(["patientAge", "patientWeight", "drugCount"]);
 
 const operatorOptions = [
-  { value: "equals", label: "=" },
+  { value: "equals", label: "Igual a" },
   { value: "contains", label: "Contém" },
   { value: "startsWith", label: "Começa com" },
   { value: "endsWith", label: "Termina com" },
-  { value: "gt", label: ">" },
-  { value: "gte", label: "≥" },
-  { value: "lt", label: "<" },
-  { value: "lte", label: "≤" },
+  { value: "gt", label: "Maior que " },
+  { value: "gte", label: "Maior ou igual a" },
+  { value: "lt", label: "Menor que" },
+  { value: "lte", label: "Menor ou igual a" },
 ];
 
 /**
