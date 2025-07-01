@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -27,7 +27,6 @@ model Shortages {
   id                 Int      @id @default(autoincrement())
   drugId             Int
   dosageForm         String
-  description        String?
   initialPostingDate DateTime
   presentation       String
   Drug               Drug     @relation(fields: [drugId], references: [id], onDelete: Cascade)
@@ -41,7 +40,6 @@ model Company {
 
 model AdverseReaction {
   name        String                      @id
-  drugs       RelAdverseReactionXDrug[]
   reportDrugs RelAdverseReactionXReport[]
 }
 
@@ -55,6 +53,8 @@ model Report {
   patientWeight    Int?
   drugs            RelReportXDrug[]
   adverseReactions RelAdverseReactionXReport[]
+
+  @@index([patientWeight], map: "Report_weight")
 }
 
 model ActiveIngredient {
@@ -77,15 +77,6 @@ model Product {
   Drug                     Drug             @relation(fields: [drugId], references: [id], onDelete: Cascade)
 }
 
-// Responde a pergunta: "Quais efeitos adversos estão associados a um determinado medicamento?"
-model RelAdverseReactionXDrug {
-  id              Int             @id @default(autoincrement())
-  drugName        String
-  adverseReaction String
-  Drug            Drug            @relation(fields: [id], references: [id], onDelete: Cascade)
-  AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
-}
-
 // Responde a pergunta: "Quais reações adversas estão associadas a um determinado relatório?"
 model RelAdverseReactionXReport {
   id              Int             @id @default(autoincrement())
@@ -93,6 +84,8 @@ model RelAdverseReactionXReport {
   adverseReaction String
   Report          Report          @relation(fields: [reportId], references: [id], onDelete: Cascade)
   AdverseReaction AdverseReaction @relation(fields: [adverseReaction], references: [name], onDelete: Cascade)
+
+  @@index([reportId, adverseReaction], map: "RelAdverseReactionXReport_reportId")
 }
 
 // Responde a pergunta: "Quais medicamentos estão associados a um determinado relatório?"
@@ -102,6 +95,8 @@ model RelReportXDrug {
   drugId   Int
   Report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
   Drug     Drug   @relation(fields: [drugId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, drugId], map: "RelReportXDrug_reportid")
 }
 
 // A drug e o medicamento em si. A diferença entre a drug e o product e que a drug e o medicamento em si, 
@@ -116,6 +111,5 @@ model Drug {
   Company                  Company                   @relation(fields: [companyName], references: [name], onDelete: Cascade)
   Shortages                Shortages[]
   RelActiveIngredientXDrug Product[]
-  RelAdverseReactionXDrug  RelAdverseReactionXDrug[]
   RelReportXDrug           RelReportXDrug[]
 }
