@@ -6,6 +6,12 @@ import DynamicChart from "../components/DynamicChart";
 
 const PAGE_SIZE = 200;
 
+/**
+ * Objeto que mapeia os nomes de exibição dos campos e joins.
+ * 
+ * Este objeto contém os nomes amigáveis para cada campo e join utilizado na pesquisa.
+ * Os nomes são usados para exibir informações mais legíveis para o usuário.
+ */
 const displayNames: Record<string, string> = {
   activeIngredient: "Ingrediente Ativo",
   adverseReaction: "Reação Adversa",
@@ -21,7 +27,6 @@ const displayNames: Record<string, string> = {
   drugId: "ID do Medicamento",
   drugName: "Nome do Medicamento",
   companyName: "Nome da Empresa",
-  description: "Descrição",
   initialPostingDate: "Data de Publicação Inicial",
   occurCountry: "País de Ocorrência",
   transmissionDate: "Data de Transmissão",
@@ -38,6 +43,11 @@ const displayNames: Record<string, string> = {
   adverseReactions: "Reação Adversa",
 };
 
+/**
+ * Função para obter o nome de exibição de um campo ou join.
+ * @param key 
+ * @returns 
+ */
 const getDisplayName = (key: string): string => {
   if (key.includes(".")) {
     const [join, field] = key.split(".");
@@ -51,6 +61,15 @@ const getDisplayName = (key: string): string => {
   return found ? found[1] : key + "No String";
 };
 
+/**
+ * Função para converter uma string em camelCase.
+ * 
+ * Esta função adiciona espaços antes de letras maiúsculas, divide a string em palavras,
+ * converte a primeira palavra para minúsculas e as demais para capitalizadas.
+ * 
+ * @param str 
+ * @returns 
+ */
 const toCamelCase = (str: string): string => {
   return str
     .replace(/([a-z])([A-Z])/g, "$1 $2") // Add space before uppercase letters
@@ -68,7 +87,6 @@ const allowedTables: Record<string, string[]> = {
     "id",
     "drugId",
     "dosageForm",
-    "description",
     "initialPostingDate",
     "presentation",
   ],
@@ -111,7 +129,6 @@ const joinFieldsMap: Record<string, string[]> = {
   Shortages: [
     "id",
     "dosageForm",
-    "description",
     "initialPostingDate",
     "presentation",
   ],
@@ -152,6 +169,13 @@ const operatorOptions = [
   { value: "lte", label: "≤" },
 ];
 
+/**
+ * Função principal do componente DrugSearch.
+ * 
+ * Este componente permite ao usuário pesquisar medicamentos e seus relacionamentos,
+ * aplicando filtros, selecionando campos para exibição e realizando buscas cruzadas.
+ * @returns 
+ */
 export default function DrugSearch() {
   const [item, setItem] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -214,6 +238,14 @@ export default function DrugSearch() {
     setPaginationEnabled((prev) => !prev);
   };
 
+  /**
+   * Função para construir a query string com base nos filtros, joins e campos selecionados.
+   * 
+   * Esta função coleta os parâmetros necessários e os formata em uma string de consulta.
+   * Se não houver item selecionado, retorna uma string vazia.
+   * 
+   * @returns 
+   */
   const buildQueryString = () => {
     if (!item) return "";
 
@@ -241,6 +273,13 @@ export default function DrugSearch() {
     return params.toString();
   };
 
+  /** * Função para buscar os dados com base nos filtros e joins selecionados.
+ * 
+   * Esta função constrói a query string com os parâmetros necessários e faz uma requisição para o backend.
+   * Se houver erro, exibe uma mensagem de erro. Se a busca for bem-sucedida, atualiza os resultados.
+   * 
+   * @returns void
+   */
   const handleSearch = async () => {
     setError(null);
     setLoading(true);
@@ -279,6 +318,15 @@ export default function DrugSearch() {
     setLoading(false);
   };
 
+  /**
+   * Função para exportar os resultados para CSV.
+   * 
+   * Esta função coleta os campos selecionados, formata os dados em linhas CSV e cria um arquivo para download.
+   * Se não houver resultados, não faz nada.
+   * 
+   * Os campos são verificados se estão marcados para exibição e formatados corretamente para CSV.
+   * @returns 
+   */
   const exportToCSV = () => {
     if (results.length === 0) return;
 
@@ -590,14 +638,11 @@ export default function DrugSearch() {
                   <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     {Object.entries(fieldsToShow)
                       .filter(([, checked]) => checked)
-                      .map(([field]) => {
-                        // Se for join.field, acessa objeto join dentro da linha
-                        return (
-                          <td key={field} className="border border-gray-300 p-1">
-                            {row[field] ?? ""}
-                          </td>
-                        );
-                      })}
+                      .map(([field]) => (
+                        <td key={field} className="border border-gray-300 p-1">
+                          {row[field] ?? row[field.split(".")[1]] ?? ""}
+                        </td>
+                      ))}
                   </tr>
                 ))}
               </tbody>

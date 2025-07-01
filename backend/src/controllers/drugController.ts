@@ -13,7 +13,7 @@ const allowedTables = [
   'report',
   'activeIngredient',
   'product',
-  'Drug'
+  'drug'
 ];
 
 const numericFields = [
@@ -22,26 +22,14 @@ const numericFields = [
 ];
 
 const allowedJoins: Record<string, string[]> = {
-  company: ['Drug'],
-  Drug: ['AdverseReaction', 'report'],
-  report: ['Drug', 'adverseReactions'],
-  product: ['ActiveIngredient', 'Drug'],
+  company: ['Drugs'],
+  Drugs: ['AdverseReaction', 'report'],
+  report: ['Drugs', 'adverseReactions'],
+  product: ['ActiveIngredient', 'Drugs'],
   activeIngredient: ['Product'],
-  adverseReaction: ['Drug', 'report'],
-  shortages: ['Drug']
-};
-
-const allowedFields: Record<string, string[]> = {
-  shortages: ['id', 'drugId', 'dosageForm', 'description', 'initialPostingDate', 'presentation'],
-  company: ['name', 'drugCount'],
-  adverseReaction: ['name'],
-  report: ['id', 'occurCountry', 'transmissionDate', 'patientAge', 'patientGender', 'patientWeight'],
-  activeIngredient: ['name', 'strength'],
-  product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
-  Drug: ['id', 'companyName', 'drugName'],
-  AdverseReaction: ['name'],
-  adverseReactions: ['name'],
-  Product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
+  adverseReaction: ['Drugs', 'report'],
+  shortages: ['Drugs'],
+  drug: ['AdverseReaction', 'report'],
 };
 
 type Ternary = {
@@ -52,19 +40,28 @@ type Ternary = {
 
 const ternaryMapping: Record<string, Array<Ternary>> = {
   adverseReaction: [
-    { incomingKeyName: 'Drug', schemaKeyName: 'Drug', relationFieldName: 'Drug' },
+    { incomingKeyName: 'Drugs', schemaKeyName: 'Drugs', relationFieldName: 'Drug' },
     { incomingKeyName: 'report', schemaKeyName: 'reportDrugs', relationFieldName: 'Report' }
   ],
-  Drug: [
+  Drugs: [
     { incomingKeyName: 'AdverseReaction', schemaKeyName: 'RelAdverseReactionXDrug', relationFieldName: 'AdverseReaction' },
     { incomingKeyName: 'report', schemaKeyName: 'RelReportXDrug', relationFieldName: 'Report' }
   ],
   report: [
-    { incomingKeyName: 'Drug', schemaKeyName: 'Drug', relationFieldName: 'Drug' },
+    { incomingKeyName: 'Drugs', schemaKeyName: 'Drugs', relationFieldName: 'Drug' },
     { incomingKeyName: 'adverseReactions', schemaKeyName: 'adverseReactions', relationFieldName: 'AdverseReaction' }
   ]
 };
 
+/**
+ * Função para obter medicamentos e seus relacionamentos.
+ * 
+ * Esta função recebe parâmetros de consulta para filtrar, selecionar e paginar os resultados de medicamentos.
+ * Os parâmetros incluem `item`, `join`, `fields`, `page`, `pageSize` e outros filtros.
+ * @param req 
+ * @param res 
+ * @returns 
+ */
 export const getDrugs = async (req: Request, res: Response) => {
   const { item, join, fields, page, pageSize, ...params } = req.query as any;
   logQuery(item, join, fields, params, page, pageSize);
@@ -127,6 +124,14 @@ export const getDrugs = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Função para construir os parâmetros do objeto `where` baseado no campo, chave bruta e valor.
+ * @param field 
+ * @param rawKey 
+ * @param value 
+ * @param operatorMap 
+ * @returns 
+ */
 function whereParameters(field: string, rawKey: string, value: any, operatorMap: Record<string, string>) {
   const operator = operatorMap[rawKey] || (numericFields.includes(field) ? 'equals' : 'contains');
   const val = numericFields.includes(field) ? Number(value) : value;
@@ -137,6 +142,48 @@ function whereParameters(field: string, rawKey: string, value: any, operatorMap:
   return result;
 }
 
+/**
+ * Função para achatar os resultados de uma consulta, removendo relacionamentos em array e mantendo os campos relevantes.
+ * 
+ * Esta função percorre os dados e, se encontrar relacionamentos em array, cria uma nova entrada para cada item do relacionamento,
+ * mantendo os campos do objeto original. Se não houver relacionamentos em array, simplesmente adiciona o objeto original ao resultado.
+ * @param data 
+ * @returns 
+ */
+function flattenResults( data: any[]): any[] {
+  const flat: any[] = [];
+
+  for (const entry of data) {
+    let hasArrayRelation = false;
+
+    for (const key in entry) {
+      if (Array.isArray(entry[key])) {
+        hasArrayRelation = true;
+        for (const sub of entry[key]) {
+          flat.push({
+            ...Object.fromEntries(Object.entries(entry).filter(([k, v]) => !Array.isArray(v))),
+            ...sub
+          });
+        }
+      }
+    }
+
+    if (!hasArrayRelation) {
+      flat.push(entry);
+    }
+  }
+
+  return flat;
+}
+
+/**
+ * Função para construir o objeto `where` baseado nos parâmetros fornecidos.
+ * 
+ * @param item 
+ * @param params 
+ * @param operatorMap 
+ * @returns 
+ */
 function buildWhere(item: string, params: any, operatorMap: Record<string, string>) {
   const where: any = {};
   for (const rawKey in params) {
@@ -153,6 +200,14 @@ function buildWhere(item: string, params: any, operatorMap: Record<string, strin
   return where;
 }
 
+/**
+ * função para construir o objeto `where` para relacionamentos ternários.
+ * @param item 
+ * @param params 
+ * @param operatorMap 
+ * @param existing 
+ * @returns 
+ */
 function buildWhereTernary(
   item: string,
   params: any,
@@ -175,6 +230,13 @@ function buildWhereTernary(
   return existing;
 }
 
+/**
+ * função para construir o objeto `select` baseado nos joins e campos fornecidos.
+ * @param item 
+ * @param joins 
+ * @param fields 
+ * @returns 
+ */
 function buildSelect(item: string, joins: string[], fields: string[]): any {
   const select: any = {};
 
@@ -208,6 +270,12 @@ function buildSelect(item: string, joins: string[], fields: string[]): any {
     },
   };
 
+  /**
+   * função auxiliar para adicionar campos aninhados ao objeto `select`.
+   * @param obj 
+   * @param path 
+   * @returns 
+   */
   function addNestedSelect(obj: any, path: string[]) {
     const [head, ...rest] = path;
     if (!head) return;
@@ -240,6 +308,14 @@ function buildSelect(item: string, joins: string[], fields: string[]): any {
   return select;
 }
 
+/**
+ * Função para construir o objeto `select` para relacionamentos ternários.
+ * @param item 
+ * @param joins 
+ * @param fields 
+ * @param existingSelect 
+ * @returns 
+ */
 function buildSelectTernary(item: string, joins: string[], fields: string[], existingSelect: any): any {
   fields.forEach(field => {
     if (field.includes('.')) {
@@ -260,19 +336,27 @@ function buildSelectTernary(item: string, joins: string[], fields: string[], exi
   return existingSelect;
 }
 
+/**
+ * função para mapear os resultados de acordo com o item solicitado. devolve em formato plano.
+ * para simplificar o resultado, os relacionamentos são "achatados" para que cada linha contenha todos os campos relevantes.
+ * @param item 
+ * @param data 
+ * @returns 
+ */
 function mapOutput(item: string, data: any): any {
   if (item === 'activeIngredient' && Array.isArray(data)) {
-    return activeIngredientMapping(data);
+    return flattenResults(activeIngredientMapping(data));
   } else if (item === 'adverseReaction' && Array.isArray(data)) {
-    return adverseReactionMapping(data);
+    return flattenResults(adverseReactionMapping(data));
   } else if (item === 'product' && Array.isArray(data)) {
-    return productMapping(data);
+    return flattenResults(productMapping(data));
   } else if (item === 'report' && Array.isArray(data)) {
-    return reportMapping(data);
+    return flattenResults(reportMapping(data));
   } else if (item === 'shortages' && Array.isArray(data)) {
-    return shortageMapping(data);
+    return flattenResults(shortageMapping(data));
   }
-  return data;
+    return flattenResults(data);
+
 }
 
 function logQuery(

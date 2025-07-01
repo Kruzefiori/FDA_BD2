@@ -1,5 +1,26 @@
 import prisma from '../prisma/client';
 
+/**
+ * Função para obter medicamentos e seus relacionamentos.
+ * 
+ * Esta função recebe parâmetros de consulta para filtrar, selecionar e paginar os resultados de medicamentos.
+ * Os parâmetros incluem `item`, `where`, `select`, `take` e `skip`.
+ * 
+ * Faz de fato a busca no banco de dados usando o Prisma ORM, retornando os resultados correspondentes.
+ * 
+ * @example
+ * 
+ * ```typescript
+ * const drugs = await getDrugs('drug', { name: 'Aspirin' }, { id: true, name: true }, 10, 0);
+ * console.log(drugs);
+ * ```
+ * @param item  
+ * @param where 
+ * @param select 
+ * @param take 
+ * @param skip 
+ * @returns 
+ */
 export async function getDrugs(
   item: string,
   where: any,
