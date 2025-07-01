@@ -13,7 +13,7 @@ const allowedTables = [
   'report',
   'activeIngredient',
   'product',
-  'Drugs'
+  'Drug'
 ];
 
 const numericFields = [
@@ -22,13 +22,13 @@ const numericFields = [
 ];
 
 const allowedJoins: Record<string, string[]> = {
-  company: ['Drugs'],
-  Drugs: ['AdverseReaction', 'report'],
-  report: ['Drugs', 'adverseReactions'],
-  product: ['ActiveIngredient', 'Drugs'],
+  company: ['Drug'],
+  Drug: ['AdverseReaction', 'report'],
+  report: ['Drug', 'adverseReactions'],
+  product: ['ActiveIngredient', 'Drug'],
   activeIngredient: ['Product'],
-  adverseReaction: ['Drugs', 'report'],
-  shortages: ['Drugs']
+  adverseReaction: ['Drug', 'report'],
+  shortages: ['Drug']
 };
 
 const allowedFields: Record<string, string[]> = {
@@ -38,7 +38,7 @@ const allowedFields: Record<string, string[]> = {
   report: ['id', 'occurCountry', 'transmissionDate', 'patientAge', 'patientGender', 'patientWeight'],
   activeIngredient: ['name', 'strength'],
   product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
-  Drugs: ['id', 'companyName', 'drugName'],
+  Drug: ['id', 'companyName', 'drugName'],
   AdverseReaction: ['name'],
   adverseReactions: ['name'],
   Drug: ['id', 'companyName', 'drugName'],
@@ -53,15 +53,15 @@ type Ternary = {
 
 const ternaryMapping: Record<string, Array<Ternary>> = {
   adverseReaction: [
-    { incomingKeyName: 'Drugs', schemaKeyName: 'Drugs', relationFieldName: 'Drug' },
+    { incomingKeyName: 'Drug', schemaKeyName: 'Drug', relationFieldName: 'Drug' },
     { incomingKeyName: 'report', schemaKeyName: 'reportDrugs', relationFieldName: 'Report' }
   ],
-  Drugs: [
+  Drug: [
     { incomingKeyName: 'AdverseReaction', schemaKeyName: 'RelAdverseReactionXDrug', relationFieldName: 'AdverseReaction' },
     { incomingKeyName: 'report', schemaKeyName: 'RelReportXDrug', relationFieldName: 'Report' }
   ],
   report: [
-    { incomingKeyName: 'Drugs', schemaKeyName: 'Drugs', relationFieldName: 'Drug' },
+    { incomingKeyName: 'Drug', schemaKeyName: 'Drug', relationFieldName: 'Drug' },
     { incomingKeyName: 'adverseReactions', schemaKeyName: 'adverseReactions', relationFieldName: 'AdverseReaction' }
   ]
 };

@@ -35,7 +35,7 @@ model Shortages {
 model Company {
   name      String @id
   drugCount Int    @default(0)
-  Drugs     Drug[]
+  Drug      Drug[]
 }
 
 model AdverseReaction {
@@ -51,8 +51,8 @@ model Report {
   patientAge       Int?
   patientGender    String?
   patientWeight    Int?
-  drugs            RelReportXDrug[]
   adverseReactions RelAdverseReactionXReport[]
+  Drug             RelReportXDrug[]
 
   @@index([patientWeight], map: "Report_weight")
 }

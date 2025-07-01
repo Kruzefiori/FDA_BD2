@@ -16,28 +16,13 @@ export async function getDrugs(
 
   console.dir({ item, query }, { depth: null });
   //return query
-  switch (item) {
+  switch (item.toLowerCase()) {
     case 'drug':
       return prisma.drug.findMany(query);
     case 'report':
       return prisma.report.findMany(query);
     case 'company':
-      return prisma.company.findMany({
-    "where": {},
-    "select": {
-        "name": true,
-        "drugCount": true,
-        "Drugs": {
-            "select": {
-                "id": true,
-                "companyName": true,
-                "drugName": true
-            }
-        },
-    },
-    "take": 20,
-    "skip": 0
-});
+      return prisma.company.findMany(query);
     case 'shortages':
       return prisma.shortages.findMany(query);
     case 'product':

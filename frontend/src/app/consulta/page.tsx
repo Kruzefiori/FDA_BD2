@@ -10,7 +10,7 @@ const displayNames: Record<string, string> = {
   activeIngredient: "Ingrediente Ativo",
   adverseReaction: "Reação Adversa",
   company: "Empresa",
-  Drugs: "Medicamento",
+  Drug: "Medicamento",
   product: "Produto",
   report: "Reporte",
   shortages: "Escassez de Medicamentos",
@@ -20,7 +20,6 @@ const displayNames: Record<string, string> = {
   drugId: "ID do Medicamento",
   drugName: "Nome do Medicamento",
   companyName: "Nome da Empresa",
-  description: "Descrição",
   initialPostingDate: "Data de Publicação Inicial",
   occurCountry: "País de Ocorrência",
   transmissionDate: "Data de Transmissão",
@@ -67,7 +66,6 @@ const allowedTables: Record<string, string[]> = {
     "id",
     "drugId",
     "dosageForm",
-    "description",
     "initialPostingDate",
     "presentation",
   ],
@@ -90,29 +88,28 @@ const allowedTables: Record<string, string[]> = {
     "route",
     "drugId",
   ],
-  Drugs: ["id", "companyName", "drugName"],
+  Drug: ["id", "companyName", "drugName"],
 };
 
 const allowedJoinsPerTable: Record<string, string[]> = {
-  shortages: ["Drugs"],
-  company: ["Drugs"],
-  Drugs: ["AdverseReaction"],
-  report: ["Drugs", "adverseReactions"],
-  product: ["Drugs"],
+  shortages: ["Drug"],
+  company: ["Drug"],
+  // Drug: ["AdverseReaction"],
+  report: ["Drug", "adverseReactions"],
+  product: ["Drug"],
   activeIngredient: ["Product"],
-  adverseReaction: ["Drugs", "report"],
+  adverseReaction: ["Drug", "report"],
 };
 
 const joinFieldsMap: Record<string, string[]> = {
   Drug: ["id", "companyName", "drugName"],
   Company: ["name", "drugCount"],
-  Shortages: ["id", "dosageForm", "description", "initialPostingDate", "presentation"],
-  Drugs: ["id", "companyName", "drugName"], // este é o correto no schema
+  Shortages: ["id", "dosageForm",  "initialPostingDate", "presentation"],
   ActiveIngredient: ["name", "strength"],
   Product: ["id", "activeIngredientName", "activeIngredientStrength", "dosageForm", "route", "drugId"],
   Report: ["id", "occurCountry", "transmissionDate", "patientAge", "patientGender", "patientWeight"],
   AdverseReaction: ["name"],
-  RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
+  // RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
   RelAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
   RelReportXDrug: ["id", "reportId", "drugId"],
 };
