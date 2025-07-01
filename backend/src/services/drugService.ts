@@ -27,17 +27,15 @@ export async function getDrugs(
       return prisma.shortages.findMany(query);
     case 'product':
       return prisma.product.findMany(query);
-    case 'activeIngredient':
+    case 'activeingredient':
       return prisma.activeIngredient.findMany(query);
-    case 'adverseReaction':
+    case 'adversereaction':
       return prisma.adverseReaction.findMany(query);
 
     // Relacionamentos ternários
-    case 'relAdverseReactionXDrug':
-      return prisma.relAdverseReactionXDrug.findMany(query);
-    case 'relAdverseReactionXReport':
+    case 'reladversereactionxreport':
       return prisma.relAdverseReactionXReport.findMany(query);
-    case 'relReportXDrug':
+    case 'relreportxdrug':
       return prisma.relReportXDrug.findMany(query);
 
     default:

@@ -10,7 +10,8 @@ const displayNames: Record<string, string> = {
   activeIngredient: "Ingrediente Ativo",
   adverseReaction: "Reação Adversa",
   company: "Empresa",
-  Drug: "Medicamento",
+  drug: "Medicamento",
+  drugs: "Medicamento",
   product: "Produto",
   report: "Reporte",
   shortages: "Escassez de Medicamentos",
@@ -20,6 +21,7 @@ const displayNames: Record<string, string> = {
   drugId: "ID do Medicamento",
   drugName: "Nome do Medicamento",
   companyName: "Nome da Empresa",
+  description: "Descrição",
   initialPostingDate: "Data de Publicação Inicial",
   occurCountry: "País de Ocorrência",
   transmissionDate: "Data de Transmissão",
@@ -66,6 +68,7 @@ const allowedTables: Record<string, string[]> = {
     "id",
     "drugId",
     "dosageForm",
+    "description",
     "initialPostingDate",
     "presentation",
   ],
@@ -88,44 +91,65 @@ const allowedTables: Record<string, string[]> = {
     "route",
     "drugId",
   ],
-  Drug: ["id", "companyName", "drugName"],
+  drug: ["id", "companyName", "drugName"],
 };
 
 const allowedJoinsPerTable: Record<string, string[]> = {
   shortages: ["Drug"],
   company: ["Drug"],
-  // Drug: ["AdverseReaction"],
-  report: ["Drug", "adverseReactions"],
+  drug: ["AdverseReaction"],
+  report: ["drugs", "adverseReactions"],
   product: ["Drug"],
   activeIngredient: ["Product"],
-  adverseReaction: ["Drug", "report"],
+  adverseReaction: ["drugs", "report"],
 };
 
 const joinFieldsMap: Record<string, string[]> = {
   Drug: ["id", "companyName", "drugName"],
+  Drugs: ["id", "companyName", "drugName"],
   Company: ["name", "drugCount"],
-  Shortages: ["id", "dosageForm",  "initialPostingDate", "presentation"],
+  Shortages: [
+    "id",
+    "dosageForm",
+    "description",
+    "initialPostingDate",
+    "presentation",
+  ],
+  drugs: ["id", "companyName", "drugName"],
+  adverseReactions: ["name"],
   ActiveIngredient: ["name", "strength"],
-  Product: ["id", "activeIngredientName", "activeIngredientStrength", "dosageForm", "route", "drugId"],
-  Report: ["id", "occurCountry", "transmissionDate", "patientAge", "patientGender", "patientWeight"],
+  Product: [
+    "id",
+    "activeIngredientName",
+    "activeIngredientStrength",
+    "dosageForm",
+    "route",
+    "drugId",
+  ],
+  reportDrugs: ["id", "reportId", "drugId"],
+  report: [
+    "id",
+    "occurCountry",
+    "transmissionDate",
+    "patientAge",
+    "patientGender",
+    "patientWeight",
+  ],
   AdverseReaction: ["name"],
-  // RelAdverseReactionXDrug: ["id", "drugName", "adverseReaction"],
-  RelAdverseReactionXReport: ["id", "reportId", "adverseReaction"],
-  RelReportXDrug: ["id", "reportId", "drugId"],
 };
 
 const dateFields = new Set(["initialPostingDate", "transmissionDate"]);
 const numberFields = new Set(["patientAge", "patientWeight", "drugCount"]);
 
 const operatorOptions = [
-  { value: "equals", label: "igual a" },
+  { value: "equals", label: "=" },
   { value: "contains", label: "Contém" },
   { value: "startsWith", label: "Começa com" },
   { value: "endsWith", label: "Termina com" },
-  { value: "gt", label: "Maior que" },
-  { value: "gte", label: "Maior ou igual a" },
-  { value: "lt", label: "Menor que" },
-  { value: "lte", label: "Menor ou igual a" },
+  { value: "gt", label: ">" },
+  { value: "gte", label: "≥" },
+  { value: "lt", label: "<" },
+  { value: "lte", label: "≤" },
 ];
 
 export default function DrugSearch() {
@@ -544,11 +568,7 @@ export default function DrugSearch() {
           {error && (
             <div className="bg-red-100 text-red-700 p-2 rounded mb-2">{error}</div>
           )}
-
-          {!error && results.length === 0 && !loading && (
-            <div>Nenhum resultado para exibir.</div>
-          )}
-
+          {!error && results.length === 0 && !loading && <div>Nenhum resultado para exibir.</div>}
           {results.length > 0 && (
             <table className="min-w-full border-collapse border border-gray-300">
               <thead>
@@ -566,23 +586,15 @@ export default function DrugSearch() {
                 </tr>
               </thead>
               <tbody>
-                {currentPageResults.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
-                  >
+                {results.map((row, i) => (
+                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                     {Object.entries(fieldsToShow)
                       .filter(([, checked]) => checked)
                       .map(([field]) => {
-                        const [joinMaybe, fieldName] = field.includes(".")
-                          ? field.split(".")
-                          : [null, field];
-                        let val = joinMaybe ? row[joinMaybe]?.[fieldName] : row[fieldName];
-                        if (val === null || val === undefined) return <td key={field}></td>;
-                        if (typeof val === "object") val = JSON.stringify(val);
+                        // Se for join.field, acessa objeto join dentro da linha
                         return (
                           <td key={field} className="border border-gray-300 p-1">
-                            {val}
+                            {row[field] ?? ""}
                           </td>
                         );
                       })}

@@ -41,7 +41,6 @@ const allowedFields: Record<string, string[]> = {
   Drug: ['id', 'companyName', 'drugName'],
   AdverseReaction: ['name'],
   adverseReactions: ['name'],
-  Drug: ['id', 'companyName', 'drugName'],
   Product: ['id', 'activeIngredientName', 'activeIngredientStrength', 'dosageForm', 'route', 'drugId'],
 };
 
