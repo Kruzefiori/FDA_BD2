@@ -12,7 +12,7 @@ export async function getDrugs(
   console.dir(query, { depth: null });
 
   if (isNaN(take) || isNaN(skip)) {
-    query.take = 100; // Default take
+    query.take = 1000; // Default take
     query.skip = 0; // Default skip
   }
 
